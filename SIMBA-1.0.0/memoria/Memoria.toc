@@ -1,0 +1,36 @@
+\select@language {catalan}
+\contentsline {section}{\numberline {1}Introducci\IeC {\'o}}{4}{section.1}
+\contentsline {subsection}{\numberline {1.1}Introducci\IeC {\'o} als conceptes b\IeC {\`a}sics de la bioinform\IeC {\`a}tica}{4}{subsection.1.1}
+\contentsline {subsection}{\numberline {1.2}Cas d'estudi: Protocol d'an\IeC {\'a}lisi d'un OpenArray}{4}{subsection.1.2}
+\contentsline {section}{\numberline {2}Protocol d'an\IeC {\`a}lisi}{5}{section.2}
+\contentsline {subsection}{\numberline {2.1}An\IeC {\`a}lisi de la vari\IeC {\`a}ncia (ANOVA)}{5}{subsection.2.1}
+\contentsline {subsubsection}{\numberline {2.1.1}Anova per a dissenys desbalancejats}{5}{subsubsection.2.1.1}
+\contentsline {subsection}{\numberline {2.2}Correcci\IeC {\'o} per multiplicitat de contrastos}{6}{subsection.2.2}
+\contentsline {subsubsection}{\numberline {2.2.1}Ratio falsos positius (\emph {False discovery Rate (FDR)})}{6}{subsubsection.2.2.1}
+\contentsline {subsection}{\numberline {2.3}Comparacions m\IeC {\'u}ltiples}{7}{subsection.2.3}
+\contentsline {subsubsection}{\numberline {2.3.1}M\IeC {\'e}tode de Tukey (\textit {honestly-significant-difference})}{7}{subsubsection.2.3.1}
+\contentsline {subsection}{\numberline {2.4}M\IeC {\`e}todes descriptius visuals}{8}{subsection.2.4}
+\contentsline {subsubsection}{\numberline {2.4.1}Heatmap}{8}{subsubsection.2.4.1}
+\contentsline {subsubsection}{\numberline {2.4.2}An\IeC {\`a}lisi de components principals (ACP): gr\IeC {\`a}fiques}{9}{subsubsection.2.4.2}
+\contentsline {subsubsection}{\numberline {2.4.3}Gr\IeC {\`a}fica de les variables}{10}{subsubsection.2.4.3}
+\contentsline {section}{\numberline {3}Cas d'estudi}{11}{section.3}
+\contentsline {subsection}{\numberline {3.1}Descripci\IeC {\'o} de l'estudi}{11}{subsection.3.1}
+\contentsline {subsection}{\numberline {3.2}Resultats}{12}{subsection.3.2}
+\contentsline {subsubsection}{\numberline {3.2.1}An\IeC {\`a}lisi de la vari\IeC {\`a}ncia (ANOVA)}{12}{subsubsection.3.2.1}
+\contentsline {subsubsection}{\numberline {3.2.2}Comparacions m\IeC {\'u}ltiples 2 a 2}{14}{subsubsection.3.2.2}
+\contentsline {subsubsection}{\numberline {3.2.3}M\IeC {\`e}todes visuals}{16}{subsubsection.3.2.3}
+\contentsline {subsection}{\numberline {3.3}Conclusions (Cas d'estudi)}{19}{subsection.3.3}
+\contentsline {section}{\numberline {4}TL3P: Aplicatiu Web amb el paquet \texttt {Shiny} de R}{20}{section.4}
+\contentsline {subsection}{\numberline {4.1}Introducci\IeC {\'o} a Shiny}{20}{subsection.4.1}
+\contentsline {subsubsection}{\numberline {4.1.1}Gesti\IeC {\'o} i control de versions}{20}{subsubsection.4.1.1}
+\contentsline {subsubsection}{\numberline {4.1.2}Estructura de l'aplicatiu}{20}{subsubsection.4.1.2}
+\contentsline {subsection}{\numberline {4.2}Funcionalitats de l'aplicaci\IeC {\'o}}{21}{subsection.4.2}
+\contentsline {subsubsection}{\numberline {4.2.1}Panell de configuraci\IeC {\'o} dels par\IeC {\`a}metres}{21}{subsubsection.4.2.1}
+\contentsline {subsubsection}{\numberline {4.2.2}Taules}{21}{subsubsection.4.2.2}
+\contentsline {subsubsection}{\numberline {4.2.3}Gr\IeC {\`a}fics}{21}{subsubsection.4.2.3}
+\contentsline {subsection}{\numberline {4.3}Futures versions de l'aplicaci\IeC {\'o}}{24}{subsection.4.3}
+\contentsline {section}{\numberline {5}Conclusions}{24}{section.5}
+\contentsline {section}{\numberline {6}Agra\IeC {\@umlaut \i }ments}{24}{section.6}
+\contentsline {section}{\numberline {A}M\IeC {\`e}tode de Ward: Exemple del m\IeC {\`e}tode amb gens}{26}{appendix.A}
+\contentsline {section}{\numberline {B}Gens diana utilitzats a l'estudi}{27}{appendix.B}
+\contentsline {section}{\numberline {C}Output sessionInfo()}{28}{appendix.C}

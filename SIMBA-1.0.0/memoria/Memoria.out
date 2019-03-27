@@ -1,0 +1,35 @@
+\BOOKMARK [1][-]{section.1}{Introducci\363}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{Introducci\363 als conceptes b\340sics de la bioinform\340tica}{section.1}% 2
+\BOOKMARK [2][-]{subsection.1.2}{Cas d'estudi: Protocol d'an\341lisi d'un OpenArray}{section.1}% 3
+\BOOKMARK [1][-]{section.2}{Protocol d'an\340lisi}{}% 4
+\BOOKMARK [2][-]{subsection.2.1}{An\340lisi de la vari\340ncia \(ANOVA\)}{section.2}% 5
+\BOOKMARK [3][-]{subsubsection.2.1.1}{Anova per a dissenys desbalancejats}{subsection.2.1}% 6
+\BOOKMARK [2][-]{subsection.2.2}{Correcci\363 per multiplicitat de contrastos}{section.2}% 7
+\BOOKMARK [3][-]{subsubsection.2.2.1}{Ratio falsos positius \(False discovery Rate \(FDR\)\)}{subsection.2.2}% 8
+\BOOKMARK [2][-]{subsection.2.3}{Comparacions m\372ltiples}{section.2}% 9
+\BOOKMARK [3][-]{subsubsection.2.3.1}{M\351tode de Tukey \(honestly-significant-difference\)}{subsection.2.3}% 10
+\BOOKMARK [2][-]{subsection.2.4}{M\350todes descriptius visuals}{section.2}% 11
+\BOOKMARK [3][-]{subsubsection.2.4.1}{Heatmap}{subsection.2.4}% 12
+\BOOKMARK [3][-]{subsubsection.2.4.2}{An\340lisi de components principals \(ACP\): gr\340fiques}{subsection.2.4}% 13
+\BOOKMARK [3][-]{subsubsection.2.4.3}{Gr\340fica de les variables}{subsection.2.4}% 14
+\BOOKMARK [1][-]{section.3}{Cas d'estudi}{}% 15
+\BOOKMARK [2][-]{subsection.3.1}{Descripci\363 de l'estudi}{section.3}% 16
+\BOOKMARK [2][-]{subsection.3.2}{Resultats}{section.3}% 17
+\BOOKMARK [3][-]{subsubsection.3.2.1}{An\340lisi de la vari\340ncia \(ANOVA\)}{subsection.3.2}% 18
+\BOOKMARK [3][-]{subsubsection.3.2.2}{Comparacions m\372ltiples 2 a 2}{subsection.3.2}% 19
+\BOOKMARK [3][-]{subsubsection.3.2.3}{M\350todes visuals}{subsection.3.2}% 20
+\BOOKMARK [2][-]{subsection.3.3}{Conclusions \(Cas d'estudi\)}{section.3}% 21
+\BOOKMARK [1][-]{section.4}{TL3P: Aplicatiu Web amb el paquet Shiny de R}{}% 22
+\BOOKMARK [2][-]{subsection.4.1}{Introducci\363 a Shiny}{section.4}% 23
+\BOOKMARK [3][-]{subsubsection.4.1.1}{Gesti\363 i control de versions}{subsection.4.1}% 24
+\BOOKMARK [3][-]{subsubsection.4.1.2}{Estructura de l'aplicatiu}{subsection.4.1}% 25
+\BOOKMARK [2][-]{subsection.4.2}{Funcionalitats de l'aplicaci\363}{section.4}% 26
+\BOOKMARK [3][-]{subsubsection.4.2.1}{Panell de configuraci\363 dels par\340metres}{subsection.4.2}% 27
+\BOOKMARK [3][-]{subsubsection.4.2.2}{Taules}{subsection.4.2}% 28
+\BOOKMARK [3][-]{subsubsection.4.2.3}{Gr\340fics}{subsection.4.2}% 29
+\BOOKMARK [2][-]{subsection.4.3}{Futures versions de l'aplicaci\363}{section.4}% 30
+\BOOKMARK [1][-]{section.5}{Conclusions}{}% 31
+\BOOKMARK [1][-]{section.6}{Agra\357ments}{}% 32
+\BOOKMARK [1][-]{appendix.A}{M\350tode de Ward: Exemple del m\350tode amb gens}{}% 33
+\BOOKMARK [1][-]{appendix.B}{Gens diana utilitzats a l'estudi}{}% 34
+\BOOKMARK [1][-]{appendix.C}{Output sessionInfo\(\)}{}% 35
