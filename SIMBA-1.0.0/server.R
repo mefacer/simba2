@@ -1,7 +1,7 @@
 source(paste0(script.dirname,"server/Analysis/RenderLoadFiles.R"))
 source(paste0(script.dirname,"server/Analysis/GetTukeyPlot.R"))
 server <- function(input, output,session) {
-  #####
+  ##### 
   #Provador
   ####
   provador=F
@@ -18,16 +18,16 @@ server <- function(input, output,session) {
     input$NAInput <- 0.5
     input$id <- "Sample ID"
   }
-
-
+  
+  
   ######
   #
   # Leer los datos como primera acción
   #
   ######
-
+  
   dt <- reactive({
-    inFile <- input$file1
+    inFile <- input$file1 
     if (is.null(inFile))
       return(NULL)
     if(file_ext(inFile$name)=="csv"){
@@ -45,15 +45,15 @@ server <- function(input, output,session) {
       table1 <- read_xlsx(inFile$datapath,col_names = TRUE,sheet = 1)
     }
   })
-
-
+  
+  
   #####
   #
   # Leer las funciones de los genes
   #
   ####
   Functions <- reactive({
-    inFile <- input$file1
+    inFile <- input$file1 
     if (is.null(inFile))
       return(NULL)
     if(file_ext(inFile$name)=="xlsx"){
@@ -65,25 +65,25 @@ server <- function(input, output,session) {
       table1 <- table1[,1:2]
     }
   })
-
+  
   ####
   #
   # Filtrar NA's, SELECTOR NA'S
   #
   ####
-
+  
   output$NAs <- renderUI({
     validate(need(input$file1,"Insert File!"))
     div(p(paste0("Total rows: ",nrow(dt()))),
         p(paste0("Total columns: ", ncol(dt()))),
         p(paste0("Number of NA in database: ",sum(apply(dt(),1,function(x) sum(is.na(x)))))))
   })
-
-
-
+  
+  
+  
   ####
   #
-  # Selectores (Uno para los factores, uno para el subset, uno para la covariable); alfa slectors
+  # Selectores (Uno para los factores, uno para el subset, uno para la covariable); alfa slectors 
   #
   ####
   output$NAinput <- renderPrint({ input$NAinput })
@@ -108,9 +108,9 @@ server <- function(input, output,session) {
     validate(need(input$factors,"Select factors of dataset"))
     selectizeInput("covariables","Select Treatment:",choices = c(input$factors),selected=F, multiple = FALSE)})
   output$alpha <- renderPrint({ input$alpha })
-
-
-
+  
+  
+  
   ####
   #
   # Tabla global
@@ -118,7 +118,7 @@ server <- function(input, output,session) {
   ####
   newData <- eventReactive(input$Start,{
     dat <- dt()
-    if(provador==T){dat <- newData}
+    if(provador==T){dat <- newData}  
     rowbye <- list()
     for(i in 1:nrow(dat)){
       if(sum(is.na(dat[i,]))==(ncol(dat)-length(input$factors))){
@@ -138,10 +138,10 @@ server <- function(input, output,session) {
     }
     newData <- as.data.frame(dat[,!colnames(dat) %in% unique(names(which(unlist(bad.sample)==T)))])
     newData <- subset(newData, newData[,input$Tissue]==input$tissuecat)
-    rownames(newData) <- newData[,input$id]
+    rownames(newData) <- newData[,input$id] 
     newData
   })
-
+  
   dataExpression <- eventReactive(input$Start,{
     newDat <- newData()
     if(provador==T){newDat <- newData}
@@ -161,10 +161,10 @@ server <- function(input, output,session) {
     Expression <- ExpressionSet(as.matrix(t(nw)),phenoData = AnnotatedDataFrame(data=df))
     Expression
   })
-
+  
   # GetTukeyList <- eventReactive(input$Start,{
   #   dat <- dt()
-  #   if(provador==T){dat <- newData}
+  #   if(provador==T){dat <- newData}    
   #   bad.sample <- list()
   #   ##Bye bye NA's
   #   for(i in 1:length(levels(as.factor(unlist(dat[,input$covariables]))))){
@@ -189,7 +189,7 @@ server <- function(input, output,session) {
   #   llista <- list(newData1,newData2)
   #   llista
   # })
-
+  
   #Load file function server
   output$table <-renderDataTable({dt()})
   output$table2 <- renderDataTable({Functions()})
@@ -198,9 +198,9 @@ server <- function(input, output,session) {
   # Tabla gene x samples
   #
   ####
-
-
-  output$tableHead <- renderTable({
+  
+  
+  output$tableHead <- renderTable({    
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
@@ -217,7 +217,7 @@ server <- function(input, output,session) {
   ####
   significatius <- reactive({
     functions <- Functions()
-    Express <- dataExpression()
+    Express <- dataExpression() 
     if(provador==T){Express <- Expression}
     tt=rowFtests(Express,as.factor(pData(Express)[,input$covariables]))
     p.BH = p.adjust(tt[,"p.value"], "BH" )
@@ -227,12 +227,12 @@ server <- function(input, output,session) {
     rownames(tt) <- paste0(func$Funcions,"_",func$Gens)
     tt
   })
-
+  
   output$tableMCA<- DT::renderDataTable({
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
-
+    
     pvaluesTable <- significatius()
     significant_rows <- which( pvaluesTable[, 'p.value'] <= input$alpha)
     validate(need(significant_rows,"No hi ha cap valor significatiu"))
@@ -240,13 +240,13 @@ server <- function(input, output,session) {
     pvaluesTable$p.value <- format(pvaluesTable$p.value,4)
     pvaluesTable$p.BH <- format(pvaluesTable$p.BH,4)
     colnames(pvaluesTable) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
-
+    
     pvaluesTable <- datatable(pvaluesTable) %>%
       formatStyle("P-value(FDR)",backgroundColor = styleInterval(c(input$alphaFDR),c("#b5f2b6","white")))%>%
       formatRound(columns=colnames(pvaluesTable), digits=4)
     pvaluesTable
   })
-
+  
   ####
   #
   # Tabla Tukey
@@ -275,77 +275,107 @@ server <- function(input, output,session) {
     noms <- as.numeric(names(Tuk) %in% rownames(tt[g,]))
     cac <- as.numeric((t(noms)*(1:length(noms))))
     Tuk <- Tuk[which(cac>0)]
-
+    
     treats_pvalues <- lapply(Tuk,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
     treats_pvalues <- do.call(rbind, treats_pvalues)
     treats_pvalues <- as.data.frame(treats_pvalues)
     rownames(treats_pvalues) <- names(Tuk)
-
+    
     # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
     datatable(treats_pvalues) %>%
       formatStyle(colnames(treats_pvalues),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
       formatRound(columns=colnames(treats_pvalues), digits=4)
   })
-
+  
   ######
   #
   # Tukey plots
   #
   #####
-
+  
+  output$tableTreatments <- DT::renderDataTable({
+    new_data <- newData()
+    gene_cols <- setdiff(names(new_data), input$factors)
+    sel_cols <- c(input$covariables, gene_cols)
+    new_data <- as.data.table(new_data[, sel_cols])
+    
+    new_data %>% 
+      melt(id.vars=input$covariables, measure.vars = gene_cols) ->
+      melted_data
+    setnames(melted_data, input$covariables, 'treatment')
+    
+    melted_data %>% 
+      .[, .(mean_treatment = mean(log10(value))), by= .(variable, treatment)] %>% 
+      dcast(variable~treatment, value.var='mean_treatment') ->
+      treatment_means
+    setnames(treatment_means, 'variable', 'Gene')
+   
+    treatment_means %>% 
+      na.omit %>% 
+      datatable %>%
+      formatRound(columns=colnames(treatment_means), digits=4)
+  })
+  
+  
+  ######
+  #
+  # Tukey plots
+  #
+  #####
+  
   output$tukeyplot<- renderPlot({NULL
     # newData <- dt()
-    # l.dat.pre.data <- GetTukeyList()
+    # l.dat.pre.data <- GetTukeyList() 
     # functions <- Functions()
-    # # ff.plot(funcg=functions$Funcions,genes = functions$Funcions, l.dat.pre=l.dat.pre.data,
-    # #                         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey,
+    # # ff.plot(funcg=functions$Funcions,genes = functions$Funcions, l.dat.pre=l.dat.pre.data, 
+    # #                         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
     # #                         a=0.3,     # desplaçament de l'inici dels rectangles
     # #                         eps=0.2,   # y del plot a nivell x=0
     # #                         incy=0.4,  # alçada rectanglets
     # #                         nomsgrups=c("Il","Je"))
-    # ff.plot(data=newData,funcg=functions$Funcions,genes = functions$Gens, l.dat.pre=l.dat.pre.data,
-    #         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey,
+    # ff.plot(data=newData,funcg=functions$Funcions,genes = functions$Gens, l.dat.pre=l.dat.pre.data, 
+    #         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
     #         a=0.3,     # desplaçament de l'inici dels rectangles
     #         eps=0.2,   # y del plot a nivell x=0
     #         incy=0.4,  # alçada rectanglets
     #         nomsgrups=c("Il","Je"), mida=1)
   })
-
-
+  
+  
   ####
   #
   # LinePlots
   #
-  ####
-  #
+  #### 
+  # 
   # Color picker
-  #
-  ####
+  #   
+  ####  
   cols <- reactive({
     newDataCol <- newData()
-    colins <- c("black","green","blue","red","yellow","orange","royalblue")
-
+    colins <- c("black","green","blue","red","yellow","orange","royalblue") 
+    
     lapply(1:length(levels(as.factor(newDataCol[[input$covariables]]))), function(i) {
       div(style="display: inline-block;vertical-align:top; width: 150px;",colourpicker::colourInput(paste("col", i, sep="_"), paste0("Treatment",i), colins[i],returnName = TRUE, allowTransparent = TRUE))
     })
   })
   output$colorSelector <- renderUI({cols()})
-
-
+  
+  
   colors <- reactive({
     newDat <- newData()
     lapply(1:length(levels(as.factor(newDat[[input$covariables]]))), function(i) {
       input[[paste("col", i, sep="_")]]
     })
   })
-
+  
   treat <- reactive({
     dat<- dt()
     selectizeInput("treatcat","Select treat category:",choices = dat[[input$covariables]],selected=T, multiple = FALSE)
   })
-
+  
   output$treatSelector <- renderUI({treat()})
-
+  
   output$lineplot <- renderPlot({
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
@@ -364,18 +394,18 @@ server <- function(input, output,session) {
     maxim <- list()
     minim <- list()
     for(i in 1:length(levels(as.factor(nw[,input$covariables])))){
-
+      
       maxim[[i]] <- as.numeric(max(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
       minim[[i]] <- as.numeric(min(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
-
+      
     }
-
+    
     if(as.numeric(input$defCol) == 1 ) {
       colorins <- 1:length(levels(as.factor(newDat[[input$covariables]])))
     } else {
       colorins <- unlist(colors())
     }
-
+    
     mitjanes <- list()
     if(as.numeric(input$orderLine)==1){
       for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
@@ -390,7 +420,7 @@ server <- function(input, output,session) {
       mitjanes <- mitjanes[order(mitjanes[,input$treatcat],decreasing = T),]
       nomsfinals <- mitjanes[,"noms"]
       mitjanes <- mitjanes[,-1]
-
+      
     }else if(as.numeric(input$orderLine)==2){
       for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
         mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
@@ -427,7 +457,7 @@ server <- function(input, output,session) {
         lines(mitjanes[,i],col=colorins[i],type="o",pch=19)
       }
     }
-
+    
     # a<- significatius()
     # g <- which( a[,3] <= input$alpha)
     # validate(need(g,"No hi ha cap valor significatiu"))
@@ -440,14 +470,14 @@ server <- function(input, output,session) {
       for(i in 1:length(signAblines)) abline(v=signAblines[i],col="black",lty="dotted")
     }
     legend("topright",paste0("T",1:length(levels(as.factor(newDat[,input$covariables])))), cex=0.8, col=colorins,lty=1, title=input$covariables)
-
+    
   })
   # ####
   #
   # Heatmap
   #
-  ####
-
+  #### 
+  
   output$heatmap <-renderPlotly({
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
@@ -473,14 +503,14 @@ server <- function(input, output,session) {
     heatmaply(exprs(dataExpression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
       colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 1) %>%
       colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 2)
-
+    
   })
-
+  
   ####
   #
   # Components principals
   #
-  ####
+  #### 
   output$pca <- renderPlot({
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
@@ -501,30 +531,30 @@ server <- function(input, output,session) {
     rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
     funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
     mitjanes<- cbind(funcions,mitjanes)
-
+    
     pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
     par(mfrow = c(1,2),
         oma = c(0,0,0,0) + 0.5,
         mar = c(4,4,4,4) + 0.5)
     plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
     plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
-
+    
   })
   ####
   #
   # Codi per tancar automaticament l'aplicacio web
   #
   ####
-
+  
   # output$markdown <- renderUI({
   #   HTML(markdown::markdownToHTML(paste0(script.dirname,'Usage.md')))
   # })
-  #
-  #
+  # 
+  # 
   # session$onSessionEnded(function() {
   #   stopApp()
   # })
-
+  
   ######
   # Codi per generar multiple xlsx summary
   ######
@@ -570,7 +600,7 @@ server <- function(input, output,session) {
     names(llista) <- c("MainData","Functions")
     llista
   })
-
+  
   output$ExcelButton <- downloadHandler(
     filename = "Results.xlsx",
     content = function(file) {
@@ -584,9 +614,9 @@ server <- function(input, output,session) {
       write_xlsx(dat)
     }
   )
-
+  
   #THEORY
-
+  
   observeEvent(input$show1, {
     showModal(modalDialog(
       title = "Theory of ANOVA (Catalan version)",
@@ -668,7 +698,7 @@ server <- function(input, output,session) {
       footer = NULL
     ))
   })
-
+  
   output$downloadData <- downloadHandler(
     filename = function() {
       paste("Examplefile", ".xlsx", sep = "")
@@ -677,5 +707,5 @@ server <- function(input, output,session) {
       file.copy(paste0(script.dirname,"www/data/Resultados_INT_44_2017.xlsx"), file)
     }
   )
-
+  
 }
