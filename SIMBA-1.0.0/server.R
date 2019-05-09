@@ -17,8 +17,8 @@ server <- function(input, output,session) {
     input$alphaTukey <- 0.1
     input$NAInput <- 0.5
     input$id <- "Sample ID"
-    }
-
+  }
+  
   
   ######
   #
@@ -27,26 +27,26 @@ server <- function(input, output,session) {
   ######
   
   dt <- reactive({
-  inFile <- input$file1 
-  if (is.null(inFile))
-    return(NULL)
-  if(file_ext(inFile$name)=="csv"){
-    validate(
-      need(file_ext(input$file1$name) %in% c(
-        'csv'
-      ), "Wrong File Format try again!"))
-  table1 <- read.csv2(inFile$datapath,header = T,sep = ",")
-  return(table1)
-  }else{
-    validate(
-      need(file_ext(input$file1$name) %in% c(
-        'xlsx'
-      ), "Wrong File Format try again!"))
-  table1 <- read_xlsx(inFile$datapath,col_names = TRUE,sheet = 1)
-  }
+    inFile <- input$file1 
+    if (is.null(inFile))
+      return(NULL)
+    if(file_ext(inFile$name)=="csv"){
+      validate(
+        need(file_ext(input$file1$name) %in% c(
+          'csv'
+        ), "Wrong File Format try again!"))
+      table1 <- read.csv2(inFile$datapath,header = T,sep = ",")
+      return(table1)
+    }else{
+      validate(
+        need(file_ext(input$file1$name) %in% c(
+          'xlsx'
+        ), "Wrong File Format try again!"))
+      table1 <- read_xlsx(inFile$datapath,col_names = TRUE,sheet = 1)
+    }
   })
-
-
+  
+  
   #####
   #
   # Leer las funciones de los genes
@@ -75,8 +75,8 @@ server <- function(input, output,session) {
   output$NAs <- renderUI({
     validate(need(input$file1,"Insert File!"))
     div(p(paste0("Total rows: ",nrow(dt()))),
-    p(paste0("Total columns: ", ncol(dt()))),
-    p(paste0("Number of NA in database: ",sum(apply(dt(),1,function(x) sum(is.na(x)))))))
+        p(paste0("Total columns: ", ncol(dt()))),
+        p(paste0("Number of NA in database: ",sum(apply(dt(),1,function(x) sum(is.na(x)))))))
   })
   
   
@@ -90,7 +90,7 @@ server <- function(input, output,session) {
   output$factorSelection<- renderUI({
     validate(need(input$file1,"Insert File!"))
     selectizeInput("factors","Select Factors:",
-                 choices = c(colnames(dt())),selected=NULL, multiple = TRUE)})
+                   choices = c(colnames(dt())),selected=NULL, multiple = TRUE)})
   output$TissueSelection <- renderUI({
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
@@ -119,14 +119,14 @@ server <- function(input, output,session) {
   newData <- eventReactive(input$Start,{
     dat <- dt()
     if(provador==T){dat <- newData}  
-     rowbye <- list()
-     for(i in 1:nrow(dat)){
-       if(sum(is.na(dat[i,]))==(ncol(dat)-length(input$factors))){
-         rowbye[[i]] <- i
-       }else{
-         rowbye[[i]] <- NA
-       }
-     }
+    rowbye <- list()
+    for(i in 1:nrow(dat)){
+      if(sum(is.na(dat[i,]))==(ncol(dat)-length(input$factors))){
+        rowbye[[i]] <- i
+      }else{
+        rowbye[[i]] <- NA
+      }
+    }
     if(length(na.omit(unlist(rowbye)))>0){
       dat <- dat[-na.omit(unlist(rowbye)),]
     }
@@ -148,7 +148,7 @@ server <- function(input, output,session) {
     newDataFact <- newDat[,input$factors]
     colnames(newDataFact) <- input$factors
     df <- data.frame(newDataFact[,input$covariables],
-                   row.names=rownames(newDataFact))
+                     row.names=rownames(newDataFact))
     colnames(df) <- as.character(input$covariables)
     idx <- match(input$factors, names(newDat))
     idx <- sort(c(idx-1, idx))
@@ -160,7 +160,7 @@ server <- function(input, output,session) {
     #nw <- subset(newData, colnames(newData) %in% input$factors)
     Expression <- ExpressionSet(as.matrix(t(nw)),phenoData = AnnotatedDataFrame(data=df))
     Expression
-    })
+  })
   
   # GetTukeyList <- eventReactive(input$Start,{
   #   dat <- dt()
@@ -189,7 +189,7 @@ server <- function(input, output,session) {
   #   llista <- list(newData1,newData2)
   #   llista
   # })
-
+  
   #Load file function server
   output$table <-renderDataTable({dt()})
   output$table2 <- renderDataTable({Functions()})
@@ -228,7 +228,7 @@ server <- function(input, output,session) {
     tt
   })
   
-    output$tableMCA<- DT::renderDataTable({
+  output$tableMCA<- DT::renderDataTable({
     validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
@@ -248,16 +248,18 @@ server <- function(input, output,session) {
     pvaluesTable
   })
   
+  
+  
   ####
   #
   # Tabla Tukey
   #
   ####
-   output$tableTukey <- DT::renderDataTable({
-     a<- significatius()
-     g <- which( a[,3] <= input$alpha)
-     validate(need(g,"No hi ha cap valor significatiu"))
-      Tukey_test<- function(dataExpression){
+  output$tableTukey2 <- DT::renderDataTable({
+    a<- significatius()
+    g <- which( a[,3] <= input$alpha)
+    validate(need(g,"No hi ha cap valor significatiu"))
+    Tukey_test<- function(dataExpression){
       Tuk <- list()
       for(i in 1:nrow(exprs(dataExpression))){
         if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
@@ -266,7 +268,7 @@ server <- function(input, output,session) {
         }
       }
       return(na.omit(Tuk))
-      }
+    }
     functions <- Functions()
     Tuk <- Tukey_test(dataExpression())
     tt <- significatius()
@@ -281,33 +283,70 @@ server <- function(input, output,session) {
       formatStyle(colnames(dataTuk),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
       formatRound(columns=colnames(dataTuk), digits=4)
     dataTuk
-    })
-    
+  })
+  ####
+  #
+  # Tabla Tukey
+  #
+  ####
+  output$tableTukey <- DT::renderDataTable({
+    a<- significatius()
+    g <- which( a[,3] <= input$alpha)
+    validate(need(g,"No hi ha cap valor significatiu"))
+    Tukey_test<- function(dataExpression){
+      Tuk <- list()
+      for(i in 1:nrow(exprs(dataExpression))){
+        if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+          Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
+          names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+        }
+      }
+      return(na.omit(Tuk))
+    }
+    functions <- Functions()
+    Tuk <- Tukey_test(dataExpression())
+    tt <- significatius()
+    func2<- functions[functions$Gens %in% names(Tuk),]
+    names(Tuk) <- paste0(func2$Funcions,"_",func2$Gens)
+    g <- which(tt[,3]<=input$alphaFDR)
+    noms <- as.numeric(names(Tuk) %in% rownames(tt[g,]))
+    cac <- as.numeric((t(noms)*(1:length(noms))))
+    Tuk <- Tuk[which(cac>0)]
+    dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
+    dataTuk <- datatable(dataTuk) %>%
+      formatStyle(colnames(dataTuk),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
+      formatRound(columns=colnames(dataTuk), digits=4)
+    dataTuk
+  })
+  
+  
+  
+  
   ######
   #
   # Tukey plots
   #
   #####
-   
-   output$tukeyplot<- renderPlot({NULL
-   # newData <- dt()
-   # l.dat.pre.data <- GetTukeyList() 
-   # functions <- Functions()
-   # # ff.plot(funcg=functions$Funcions,genes = functions$Funcions, l.dat.pre=l.dat.pre.data, 
-   # #                         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
-   # #                         a=0.3,     # desplaçament de l'inici dels rectangles
-   # #                         eps=0.2,   # y del plot a nivell x=0
-   # #                         incy=0.4,  # alçada rectanglets
-   # #                         nomsgrups=c("Il","Je"))
-   # ff.plot(data=newData,funcg=functions$Funcions,genes = functions$Gens, l.dat.pre=l.dat.pre.data, 
-   #         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
-   #         a=0.3,     # desplaçament de l'inici dels rectangles
-   #         eps=0.2,   # y del plot a nivell x=0
-   #         incy=0.4,  # alçada rectanglets
-   #         nomsgrups=c("Il","Je"), mida=1)
-   })
   
-    
+  output$tukeyplot<- renderPlot({NULL
+    # newData <- dt()
+    # l.dat.pre.data <- GetTukeyList() 
+    # functions <- Functions()
+    # # ff.plot(funcg=functions$Funcions,genes = functions$Funcions, l.dat.pre=l.dat.pre.data, 
+    # #                         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
+    # #                         a=0.3,     # desplaçament de l'inici dels rectangles
+    # #                         eps=0.2,   # y del plot a nivell x=0
+    # #                         incy=0.4,  # alçada rectanglets
+    # #                         nomsgrups=c("Il","Je"))
+    # ff.plot(data=newData,funcg=functions$Funcions,genes = functions$Gens, l.dat.pre=l.dat.pre.data, 
+    #         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
+    #         a=0.3,     # desplaçament de l'inici dels rectangles
+    #         eps=0.2,   # y del plot a nivell x=0
+    #         incy=0.4,  # alçada rectanglets
+    #         nomsgrups=c("Il","Je"), mida=1)
+  })
+  
+  
   ####
   #
   # LinePlots
@@ -320,9 +359,9 @@ server <- function(input, output,session) {
   cols <- reactive({
     newDataCol <- newData()
     colins <- c("black","green","blue","red","yellow","orange","royalblue") 
-   
-      lapply(1:length(levels(as.factor(newDataCol[[input$covariables]]))), function(i) {
-        div(style="display: inline-block;vertical-align:top; width: 150px;",colourpicker::colourInput(paste("col", i, sep="_"), paste0("Treatment",i), colins[i],returnName = TRUE, allowTransparent = TRUE))
+    
+    lapply(1:length(levels(as.factor(newDataCol[[input$covariables]]))), function(i) {
+      div(style="display: inline-block;vertical-align:top; width: 150px;",colourpicker::colourInput(paste("col", i, sep="_"), paste0("Treatment",i), colins[i],returnName = TRUE, allowTransparent = TRUE))
     })
   })
   output$colorSelector <- renderUI({cols()})
@@ -334,12 +373,12 @@ server <- function(input, output,session) {
       input[[paste("col", i, sep="_")]]
     })
   })
-
+  
   treat <- reactive({
     dat<- dt()
     selectizeInput("treatcat","Select treat category:",choices = dat[[input$covariables]],selected=T, multiple = FALSE)
-    })
-
+  })
+  
   output$treatSelector <- renderUI({treat()})
   
   output$lineplot <- renderPlot({
@@ -363,30 +402,30 @@ server <- function(input, output,session) {
       
       maxim[[i]] <- as.numeric(max(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
       minim[[i]] <- as.numeric(min(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
-
+      
     }
     
     if(as.numeric(input$defCol) == 1 ) {
       colorins <- 1:length(levels(as.factor(newDat[[input$covariables]])))
-     } else {
-       colorins <- unlist(colors())
-     }
+    } else {
+      colorins <- unlist(colors())
+    }
     
     mitjanes <- list()
     if(as.numeric(input$orderLine)==1){
-    for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
+      for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
         mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-    }
-    mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
-    colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
-    rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
-    funcions<- functions[unlist(functions[,1]) %in% colnames(nw),]
-    noms <- paste0(funcions$Funcions,"_",funcions$Gens)
-    mitjanes<- cbind(noms,mitjanes)
-    mitjanes <- mitjanes[order(mitjanes[,input$treatcat],decreasing = T),]
-    nomsfinals <- mitjanes[,"noms"]
-    mitjanes <- mitjanes[,-1]
-    
+      }
+      mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
+      colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
+      rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
+      funcions<- functions[unlist(functions[,1]) %in% colnames(nw),]
+      noms <- paste0(funcions$Funcions,"_",funcions$Gens)
+      mitjanes<- cbind(noms,mitjanes)
+      mitjanes <- mitjanes[order(mitjanes[,input$treatcat],decreasing = T),]
+      nomsfinals <- mitjanes[,"noms"]
+      mitjanes <- mitjanes[,-1]
+      
     }else if(as.numeric(input$orderLine)==2){
       for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
         mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
@@ -420,8 +459,8 @@ server <- function(input, output,session) {
         plot(mitjanes[,i],col=colorins[i],ylim=c(min(as.numeric(na.omit(unlist(minim))))-0.1,max(as.numeric(na.omit(unlist(maxim))))+0.1),type="o",pch=19,xaxt='n',xlab=NA,ylab=NA)
         axis(1, at=1:(ncol(nw)-1), labels=nomsfinals,las=2, cex.axis=0.8)
       }else{
-      lines(mitjanes[,i],col=colorins[i],type="o",pch=19)
-    }
+        lines(mitjanes[,i],col=colorins[i],type="o",pch=19)
+      }
     }
     
     # a<- significatius()
@@ -431,81 +470,81 @@ server <- function(input, output,session) {
     if(provador==T){sign <- tt}
     sign <- na.omit(sign)
     if(length(sign)>0){
-    signAblines<- rownames(sign[sign$p.BH<=input$alphaFDR,])
-    signAblines<- which(nomsfinals %in% signAblines)
-    for(i in 1:length(signAblines)) abline(v=signAblines[i],col="black",lty="dotted")
+      signAblines<- rownames(sign[sign$p.BH<=input$alphaFDR,])
+      signAblines<- which(nomsfinals %in% signAblines)
+      for(i in 1:length(signAblines)) abline(v=signAblines[i],col="black",lty="dotted")
     }
     legend("topright",paste0("T",1:length(levels(as.factor(newDat[,input$covariables])))), cex=0.8, col=colorins,lty=1, title=input$covariables)
     
-    })
-    # ####
-    #
-    # Heatmap
-    #
-    #### 
+  })
+  # ####
+  #
+  # Heatmap
+  #
+  #### 
+  
+  output$heatmap <-renderPlotly({
+    validate(need(input$file1,"Insert File!"))
+    validate(need(input$factors,"Select factors of dataset"))
+    validate(need(input$covariables,"Select covariable of dataset"))
+    newDat <- newData()
+    if(provador==T){
+      newDat <- newData;
+      Covariable<- as.factor(pData(Expression)[,input$covariables])
+      nomscols <- functions[functions$Gens %in% rownames(Expression),"Funcions"]
+      Covariable <- as.data.frame(Covariable)
+    }
+    functions<- Functions()
+    nomscols <- data.frame("Funcions"=functions[functions$Gens %in% rownames(exprs(dataExpression())),"Funcions"])
+    rownames(nomscols) <- unlist(functions[functions$Gens %in% rownames(exprs(dataExpression())),"Gens"])
+    Covariable<- as.factor(pData(dataExpression())[,input$covariables])
+    Covariable <- as.data.frame(Covariable)
+    colnames(Covariable) <- input$covariables
+    rownames(Covariable) <- colnames(exprs(dataExpression()))
+    divergent_viridis_magma <- c(viridis(10, begin = 0.3), rev(magma(10, begin = 0.3)))
+    rwb <- colorRampPalette(colors = c("darkred", "white", "darkgreen"))
+    BrBG <- colorRampPalette(brewer.pal(11, "BrBG"))
+    Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
+    heatmaply(exprs(dataExpression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
+      colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 1) %>%
+      colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 2)
     
-    output$heatmap <-renderPlotly({
-        validate(need(input$file1,"Insert File!"))
-        validate(need(input$factors,"Select factors of dataset"))
-        validate(need(input$covariables,"Select covariable of dataset"))
-        newDat <- newData()
-        if(provador==T){
-          newDat <- newData;
-          Covariable<- as.factor(pData(Expression)[,input$covariables])
-          nomscols <- functions[functions$Gens %in% rownames(Expression),"Funcions"]
-          Covariable <- as.data.frame(Covariable)
-        }
-        functions<- Functions()
-        nomscols <- data.frame("Funcions"=functions[functions$Gens %in% rownames(exprs(dataExpression())),"Funcions"])
-        rownames(nomscols) <- unlist(functions[functions$Gens %in% rownames(exprs(dataExpression())),"Gens"])
-        Covariable<- as.factor(pData(dataExpression())[,input$covariables])
-        Covariable <- as.data.frame(Covariable)
-        colnames(Covariable) <- input$covariables
-        rownames(Covariable) <- colnames(exprs(dataExpression()))
-        divergent_viridis_magma <- c(viridis(10, begin = 0.3), rev(magma(10, begin = 0.3)))
-        rwb <- colorRampPalette(colors = c("darkred", "white", "darkgreen"))
-        BrBG <- colorRampPalette(brewer.pal(11, "BrBG"))
-        Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
-        heatmaply(exprs(dataExpression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
-          colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 1) %>%
-          colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 2)
-
-      })
-
-    ####
-    #
-    # Components principals
-    #
-    #### 
-    output$pca <- renderPlot({
-      validate(need(input$file1,"Insert File!"))
-      validate(need(input$factors,"Select factors of dataset"))
-      validate(need(input$covariables,"Select covariable of dataset"))
-      newDat <- newData()
-      functions <- Functions()
-      if(provador==T){ newDat <- newData;input$defCol=1;input$orderLine=1}
-      idx <- match(input$factors, names(newDat))
-      idx <- sort(c(idx-1, idx))
-      nw <- log10(newDat[,-idx])
-      nw[[input$covariables]] <- newDat[,input$covariables]
-      mitjanes <- list()
-      for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
-          mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-      }
-      mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
-      colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
-      rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
-      funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
-      mitjanes<- cbind(funcions,mitjanes)
-      
-      pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
-      par(mfrow = c(1,2),
-          oma = c(0,0,0,0) + 0.5,
-          mar = c(4,4,4,4) + 0.5)
-      plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
-      plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
-        
-    })
+  })
+  
+  ####
+  #
+  # Components principals
+  #
+  #### 
+  output$pca <- renderPlot({
+    validate(need(input$file1,"Insert File!"))
+    validate(need(input$factors,"Select factors of dataset"))
+    validate(need(input$covariables,"Select covariable of dataset"))
+    newDat <- newData()
+    functions <- Functions()
+    if(provador==T){ newDat <- newData;input$defCol=1;input$orderLine=1}
+    idx <- match(input$factors, names(newDat))
+    idx <- sort(c(idx-1, idx))
+    nw <- log10(newDat[,-idx])
+    nw[[input$covariables]] <- newDat[,input$covariables]
+    mitjanes <- list()
+    for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
+      mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
+    }
+    mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
+    colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
+    rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
+    funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
+    mitjanes<- cbind(funcions,mitjanes)
+    
+    pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
+    par(mfrow = c(1,2),
+        oma = c(0,0,0,0) + 0.5,
+        mar = c(4,4,4,4) + 0.5)
+    plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
+    plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
+    
+  })
   ####
   #
   # Codi per tancar automaticament l'aplicacio web
@@ -520,158 +559,158 @@ server <- function(input, output,session) {
   # session$onSessionEnded(function() {
   #   stopApp()
   # })
-    
+  
   ######
   # Codi per generar multiple xlsx summary
   ######
-    llistaTables <- reactive({
-      llista <- list()
-      llista[[1]] <- dt() #guardem la taula principal
-      llista[[2]] <- Functions() #guardem les funcions
-      # llista[[3]] <- as.data.frame(exprs(dataExpression()))#guardem la matriu d'expressió
-      # tt <- significatius()
-      # tt <- na.omit(tt)
-      # tt$p.value <- format(tt$p.value,4)
-      # tt$p.BH <- format(tt$p.BH,4)
-      # colnames(tt) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
-      # aligned <- 'rrr'
-      # g <- which( tt[,2] <= input$alpha)
-      # pvaluesTable<- tt[g,]
-      # pvaluesTable <- datatable(pvaluesTable) %>%
-      #   formatStyle("P-value(FDR)",backgroundColor = styleInterval(c(input$alphaFDR),c("#b5f2b6","white")))%>%
-      #   formatRound(columns=colnames(pvaluesTable), digits=4)
-      # llista[[4]] <- pvaluesTable #anova
-      # a<- significatius()
-      # g <- which( a[,3] <= input$alpha)
-      # validate(need(g,"No hi ha cap valor significatiu"))
-      # Tukey_test<- function(dataExpression){
-      #   Tuk <- list()
-      #   for(i in 1:nrow(exprs(dataExpression))){
-      #     if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
-      #       Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
-      #       names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
-      #     }
-      #   }
-      #   return(na.omit(Tuk))
+  llistaTables <- reactive({
+    llista <- list()
+    llista[[1]] <- dt() #guardem la taula principal
+    llista[[2]] <- Functions() #guardem les funcions
+    # llista[[3]] <- as.data.frame(exprs(dataExpression()))#guardem la matriu d'expressió
+    # tt <- significatius()
+    # tt <- na.omit(tt)
+    # tt$p.value <- format(tt$p.value,4)
+    # tt$p.BH <- format(tt$p.BH,4)
+    # colnames(tt) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
+    # aligned <- 'rrr'
+    # g <- which( tt[,2] <= input$alpha)
+    # pvaluesTable<- tt[g,]
+    # pvaluesTable <- datatable(pvaluesTable) %>%
+    #   formatStyle("P-value(FDR)",backgroundColor = styleInterval(c(input$alphaFDR),c("#b5f2b6","white")))%>%
+    #   formatRound(columns=colnames(pvaluesTable), digits=4)
+    # llista[[4]] <- pvaluesTable #anova
+    # a<- significatius()
+    # g <- which( a[,3] <= input$alpha)
+    # validate(need(g,"No hi ha cap valor significatiu"))
+    # Tukey_test<- function(dataExpression){
+    #   Tuk <- list()
+    #   for(i in 1:nrow(exprs(dataExpression))){
+    #     if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+    #       Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
+    #       names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+    #     }
+    #   }
+    #   return(na.omit(Tuk))
+    # }
+    # Tuk <- Tukey_test(dataExpression())
+    # tt <- significatius()
+    # names(Tuk) <- rownames(tt)
+    # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
+    # dataTuk <- dataTuk[rowSums(dataTuk <= input$alphaTukey)>=1,]
+    # dataTuk <- datatable(dataTuk) %>%
+    #   formatStyle(colnames(dataTuk),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
+    #   formatRound(columns=colnames(dataTuk), digits=4)
+    # llista[[5]] <- dataTuk #tukey
+    names(llista) <- c("MainData","Functions")
+    llista
+  })
+  
+  output$ExcelButton <- downloadHandler(
+    filename = "Results.xlsx",
+    content = function(file) {
+      dat <- llistaTables()
+      # wb <- createWorkbook()
+      # for (i in 1:2) {
+      #   addWorksheet(wb,sheetName=names(dat)[i])
+      #   writeData(wb, sheet=i,dat[[i]])
+      #   saveWorkbook(wb,file,overwrite = T)
       # }
-      # Tuk <- Tukey_test(dataExpression())
-      # tt <- significatius()
-      # names(Tuk) <- rownames(tt)
-      # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
-      # dataTuk <- dataTuk[rowSums(dataTuk <= input$alphaTukey)>=1,]
-      # dataTuk <- datatable(dataTuk) %>%
-      #   formatStyle(colnames(dataTuk),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
-      #   formatRound(columns=colnames(dataTuk), digits=4)
-      # llista[[5]] <- dataTuk #tukey
-      names(llista) <- c("MainData","Functions")
-      llista
-    })
-    
-    output$ExcelButton <- downloadHandler(
-      filename = "Results.xlsx",
-      content = function(file) {
-        dat <- llistaTables()
-        # wb <- createWorkbook()
-        # for (i in 1:2) {
-        #   addWorksheet(wb,sheetName=names(dat)[i])
-        #   writeData(wb, sheet=i,dat[[i]])
-        #   saveWorkbook(wb,file,overwrite = T)
-        # }
-        write_xlsx(dat)
-      }
-    )
-    
-    #THEORY
-    
-    observeEvent(input$show1, {
-      showModal(modalDialog(
-        title = "Theory of ANOVA (Catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"shows/show1.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$show2, {
-      showModal(modalDialog(
-        title = "Theory of FDR (Catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"shows/show2.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$show3, {
-      showModal(modalDialog(
-        title = "Theory of Tukey (Catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"shows/show3.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$show4, {
-      showModal(modalDialog(
-        title = "Theory of PCA (Catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"shows/show4.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$show6, {
-      showModal(modalDialog(
-        title = "Theory of Heatmap (Catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"shows/show5.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    #HINTS
-    observeEvent(input$showi2, {
-      showModal(modalDialog(
-        title = "Interpretation Hint (catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint1.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$showi3, {
-      showModal(modalDialog(
-        title = "Interpretation Hint (catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint2.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$showi4, {
-      showModal(modalDialog(
-        title = "Interpretation Hint (catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint3.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$showi5, {
-      showModal(modalDialog(
-        title = "Interpretation Hint (catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint4.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    observeEvent(input$showi6, {
-      showModal(modalDialog(
-        title = "Interpretation Hint (catalan version)",
-        withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint5.md"))),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    })
-    
-    output$downloadData <- downloadHandler(
-      filename = function() {
-        paste("Examplefile", ".xlsx", sep = "")
-      },
-      content = function(file) {
-        file.copy(paste0(script.dirname,"www/data/Resultados_INT_44_2017.xlsx"), file)
-      }
-    )
-    
+      write_xlsx(dat)
+    }
+  )
+  
+  #THEORY
+  
+  observeEvent(input$show1, {
+    showModal(modalDialog(
+      title = "Theory of ANOVA (Catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show1.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$show2, {
+    showModal(modalDialog(
+      title = "Theory of FDR (Catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show2.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$show3, {
+    showModal(modalDialog(
+      title = "Theory of Tukey (Catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show3.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$show4, {
+    showModal(modalDialog(
+      title = "Theory of PCA (Catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show4.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$show6, {
+    showModal(modalDialog(
+      title = "Theory of Heatmap (Catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show5.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  #HINTS
+  observeEvent(input$showi2, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint1.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$showi3, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint2.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$showi4, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint3.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$showi5, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint4.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  observeEvent(input$showi6, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint5.md"))),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("Examplefile", ".xlsx", sep = "")
+    },
+    content = function(file) {
+      file.copy(paste0(script.dirname,"www/data/Resultados_INT_44_2017.xlsx"), file)
+    }
+  )
+  
 }
