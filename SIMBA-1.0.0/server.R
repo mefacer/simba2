@@ -4,16 +4,16 @@ server <- function(input, output,session) {
   ##### 
   #Provador
   ####
-  provador=F
+  provador=FALSE
   if(provador){
     input <- list()
-    newData <-  read_xlsx("~/Descargas/Database_AGL_H3_d2.xlsx",col_names = TRUE,sheet = 1)
-    functions <- read_xlsx("~/Descargas/Database_AGL_H3_d2.xlsx",col_names = TRUE,sheet = 2)
+    newData <-  read_xlsx("/Users/aleixrvr/Google Drive/AKC/Entities/UAB/simba_docs/data/negCtrolComparison_Francesc.xlsx",col_names = TRUE,sheet = 1)
+    functions <- read_xlsx("/Users/aleixrvr/Google Drive/AKC/Entities/UAB/simba_docs/data/negCtrolComparison_Francesc.xlsx",col_names = TRUE,sheet = 2)
     functions <- functions[,1:2]
-    input$factors <- c("Sample ID","Group","Treatment","Tissue")
+    input$factors <- c("Sample ID","Treatment","Tissue")
     input$covariables <- c("Treatment")
     input$Tissue <- c("Tissue")
-    input$tissuecat <- c("Jejunum")
+    input$tissuecat <- c("lleum")
     #input$alphaTukey <- 0.1
     input$NAInput <- 0.5
     input$id <- "Sample ID"
@@ -73,7 +73,7 @@ server <- function(input, output,session) {
   ####
   
   output$NAs <- renderUI({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     div(p(paste0("Total rows: ",nrow(dt()))),
         p(paste0("Total columns: ", ncol(dt()))),
         p(paste0("Number of NA in database: ",sum(apply(dt(),1,function(x) sum(is.na(x)))))))
@@ -88,7 +88,7 @@ server <- function(input, output,session) {
   ####
   output$NAinput <- renderPrint({ input$NAinput })
   output$factorSelection<- renderUI({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     selectizeInput("factors","Select Factors:",
                    choices = c(colnames(dt())),selected=NULL, multiple = TRUE)})
   output$TissueSelection <- renderUI({
@@ -214,7 +214,7 @@ server <- function(input, output,session) {
   
   
   output$tableHead <- renderTable({    
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
     if(input$checkbox==F){
@@ -242,7 +242,7 @@ server <- function(input, output,session) {
   })
   
   output$tableMCA<- DT::renderDataTable({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
     
@@ -291,40 +291,55 @@ server <- function(input, output,session) {
     return(na.omit(Tuk))
   }
   
-  calculate_table_Tukey <- reactive({
-    a<- significatius()
-    g <- which( a[,3] <= input$alpha)
-    validate(need(g,"No hi ha cap valor significatiu"))
-    functions <- Functions()
-    Tuk <- Tukey_test(dataExpression_new())
-    tt <- significatius()
-    func2<- functions[functions$Gens %in% names(Tuk),]
-    names(Tuk) <- paste0(func2$Funcions,"_",func2$Gens)
-    g <- which(tt[,3]<=input$alphaFDR)
-    noms <- as.numeric(names(Tuk) %in% rownames(tt[g,]))
-    cac <- as.numeric((t(noms)*(1:length(noms))))
-    Tuk <- Tuk[which(cac>0)]
-    
-    treats_pvalues <- lapply(Tuk,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
-    treats_pvalues <- do.call(rbind, treats_pvalues)
-    treats_pvalues <- as.data.frame(treats_pvalues)
-    rownames(treats_pvalues) <- names(Tuk)
-    treats_pvalues
-  })
+  ## OLD version
+  # calculate_table_Tukey <- reactive({
+  #   a<- significatius()
+  #   g <- which( a[,3] <= input$alpha)
+  #   validate(need(g,"No hi ha cap valor significatiu"))
+  #   functions <- Functions()
+  #   Tuk <- Tukey_test(dataExpression_new())
+  #   tt <- significatius()
+  #   func2<- functions[functions$Gens %in% names(Tuk),]
+  #   names(Tuk) <- paste0(func2$Funcions,"_",func2$Gens)
+  #   g <- which(tt[,3]<=input$alphaFDR)
+  #   noms <- as.numeric(names(Tuk) %in% rownames(tt[g,]))
+  #   cac <- as.numeric((t(noms)*(1:length(noms))))
+  #   Tuk <- Tuk[which(cac>0)]
+  #   
+  #   treats_pvalues <- lapply(Tuk,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
+  #   treats_pvalues <- do.call(rbind, treats_pvalues)
+  #   treats_pvalues <- as.data.frame(treats_pvalues)
+  #   rownames(treats_pvalues) <- names(Tuk)
+  #   treats_pvalues
+  # })
   
-  calculate_table_Tukey_new <- reactive({
-    # a<- significatius()
+  combine_genes_with_funcions <- function(data_set, gene_column_name = 'Genes'){
+    gene_functions <- Functions()
+    colnames(gene_functions)[1] <- gene_column_name
+    
+    data_set %<>% left_join(gene_functions, by=gene_column_name)
+    data_set[, gene_column_name] <- paste(data_set$Funcions, data_set[, gene_column_name], sep='_')
+    data_set$Funcions <- NULL
+    data_set
+  }
+  
+  calculate_table_Tukey <- reactive({
     # g <- which( a[,3] <= input$alpha)
     # validate(need(g,"No hi ha cap valor significatiu"))
     
-    # functions <- Functions()
+
     tukey_table <- Tukey_test(dataExpression_new())
     
-    treats_pvalues <- lapply(tukey_table,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
-    treats_pvalues <- do.call(rbind, treats_pvalues)
-    treats_pvalues <- as.data.frame(treats_pvalues)
-    rownames(treats_pvalues) <- names(tukey_table)
-    treats_pvalues
+    tukey_table %>% 
+      lapply(function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE])) %>% 
+      do.call(rbind, .) %>% 
+      as.data.frame() ->
+      treats_pvalues
+    
+    treats_pvalues <- cbind(Genes = names(tukey_table), treats_pvalues)
+    row.names(treats_pvalues) <- NULL
+    
+    combine_genes_with_funcions(treats_pvalues)
   })
   
   
@@ -480,7 +495,7 @@ server <- function(input, output,session) {
   output$treatSelector <- renderUI({treat()})
   
   output$lineplot <- renderPlot({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
     newDat <- newData()
@@ -582,7 +597,7 @@ server <- function(input, output,session) {
   #### 
   
   output$heatmap <-renderPlotly({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
     newDat <- newData()
@@ -615,7 +630,7 @@ server <- function(input, output,session) {
   #
   #### 
   output$pca <- renderPlot({
-    validate(need(input$file1,"Insert File!"))
+    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
     newDat <- newData()
