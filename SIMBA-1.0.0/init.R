@@ -7,7 +7,8 @@ list.of.packages <- c("plotly","codetools","writexl","openxlsx",
                       "RColorBrewer","shinycssloaders","shinyjs",
                       "ggplot2","heatmaply","gplots","Biobase","RCurl",
                       "genefilter","shinythemes","DT","tools","readxl",
-                      "shiny","shinymaterial","stringi", "data.table", "agricolae")
+                      "shiny","shinymaterial","stringi", "data.table", 
+                      "agricolae", 'magrittr', 'tidyr', 'dplyr')
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages())]
 if(length(new.packages)){
   install.packages(new.packages)

@@ -356,57 +356,28 @@ server <- function(input, output,session) {
   #
   #####
   
-  get_treats_names_from_comparisons <- function(treats_comp){
-    treats_comp %>% 
-      strsplit('-') %>% 
-      unlist %>% 
-      unique %>% 
-      sort
-  }
-  
-  calculate_letters <- function(p_values, alpha_value){
-    p_values %>% 
-      names %>% 
-      get_treats_names_from_comparisons ->
-      treats
+  Tukey_letters<- reactive({
+    dataExpression <- dataExpression_new()
+    Tukey_comparisons <- list()
+    gene_expressions <- exprs(dataExpression)
+    treatments <- as.factor(pData(dataExpression)[,1])
     
-    significant_inds <- p_values < alpha_value
-    
-    significant_treats_comp <- colnames(p_values)[significant_inds]
-    significant_treats <- get_treats_names_from_comparisons(significant_treats_comp)
-    significant_treats_comp %>% 
-      strsplit('-') %>% 
-      lapply(sort) ->
-      significant_treats_comp
-    
-    for( signif_treat in significant_treats ){
-      
-    }
-    
-    
-    
-  }
-  
-  pvalues_to_letters <- reactive({
-    alpha_value <- input$alpha
-    treats_pvalues <- calculate_table_Tukey_new()
-    
-  })
-  
-  
-  Tukey_letters<- function(dataExpression){
-    Tuk <- list()
-    for(i in 1:nrow(exprs(dataExpression))){
-      if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
-        aov_model <- aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1]))
-        Tuk[[i]] <- HSD.test(aov_model, trt =input$covariables)
-        names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+    for(row_n in 1:nrow(gene_expressions)){
+      valid_data = sum(is.na(gene_expressions[row_n,])) < length(gene_expressions[row_n,])-2
+      if( valid_data ){
+        aov_model <- aov(gene_expressions[row_n,]~ treatments)
+        comparisons <- HSD.test(aov_model, trt ='treatments', alpha=input$alpha)$groups
+        comparisons$treatment <- rownames(comparisons)
+        rownames(comparisons) <- NULL
+        comparisons <- comparisons[, c('treatment', 'groups')]
+        Tukey_comparisons[[row_n]] <- comparisons
+        names(Tukey_comparisons)[[row_n]] <- rownames(gene_expressions)[row_n]
       }
     }
-    return(na.omit(Tuk))
-  }
+    return(Tukey_comparisons)
+  })
   
-  output$tableTreatments <- DT::renderDataTable({
+  calc_treatment_diffs <- reactive({
     new_data <- newData()
     gene_cols <- setdiff(names(new_data), input$factors)
     sel_cols <- c(input$covariables, gene_cols)
@@ -423,18 +394,44 @@ server <- function(input, output,session) {
       treatment_means
     setnames(treatment_means, 'variable', 'Gene')
     
-    # browser()
+    treatment_means
+  })
+  
+  output$tableTreatments <- DT::renderDataTable({
+    treatment_means <- calc_treatment_diffs()
+    tukey_letters <- Tukey_letters()
     
-    # tuket_letters <- Tukey_letters(dataExpression_new())
-    
-   
-    treatment_means %>% 
-      na.omit %>% 
-      datatable %>%
-      formatRound(columns=colnames(treatment_means), digits=4)
+    format_tukey_letters(tukey_letters, treatment_means) %>% 
+      datatable(escape = FALSE)
   })
   
   
+  format_tukey_letters <- function(tukey_letters, treatment_means, digits=4){
+    tukey_letters_table <- do.call(rbind, tukey_letters)
+    rownames(tukey_letters_table) %>% 
+      strsplit(".", fixed = TRUE) %>% 
+      do.call(rbind, .) %>% 
+      .[, 1] ->
+      tukey_letters_table$Gene  
+    
+    treatment_means %>% 
+      gather('treatment', 'value', -Gene) %>% 
+      left_join(tukey_letters_table, by=c('Gene', 'treatment')) %>% 
+      mutate(groups = as.character(groups)) %>% 
+      mutate(groups = replace_na(groups, '')) ->
+      table_res
+    
+    table_res %>% 
+      mutate(value_int=paste(round(value, digits=digits), "<sup>", groups, "</sup>", sep="")) %>% 
+      mutate(value=ifelse(groups=='', round(value, digits=digits), value_int)) %>% 
+      mutate(value_int=NULL) %>% 
+      mutate(groups=NULL) %>% 
+      spread(treatment, value) 
+  }
+  
+  
+  
+    
   ######
   #
   # Tukey plots
