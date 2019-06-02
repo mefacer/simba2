@@ -14,7 +14,7 @@ server <- function(input, output,session) {
     input$covariables <- c("Treatment")
     input$Tissue <- c("Tissue")
     input$tissuecat <- c("Jejunum")
-    input$alphaTukey <- 0.1
+    #input$alphaTukey <- 0.1
     input$NAInput <- 0.5
     input$id <- "Sample ID"
   }
@@ -162,6 +162,19 @@ server <- function(input, output,session) {
     Expression
   })
   
+  dataExpression_new <- eventReactive(input$Start,{
+    data_set <- newData()
+    if(provador==T){newDat <- newData}
+    data_covars <- data_set[,input$covariables, drop=FALSE]
+    
+    sel_cols <- setdiff(colnames(data_set), input$factors)
+    
+    data_set[, sel_cols] %>%
+      t %>% 
+      as.matrix %>%
+      ExpressionSet(phenoData = AnnotatedDataFrame(data=data_covars))
+  })
+  
   # GetTukeyList <- eventReactive(input$Start,{
   #   dat <- dt()
   #   if(provador==T){dat <- newData}    
@@ -234,40 +247,56 @@ server <- function(input, output,session) {
     validate(need(input$covariables,"Select covariable"))
     
     pvaluesTable <- significatius()
-    significant_rows <- which( pvaluesTable[, 'p.value'] <= input$alpha)
-    validate(need(significant_rows,"No hi ha cap valor significatiu"))
-    pvaluesTable <- na.omit(pvaluesTable)
     pvaluesTable$p.value <- format(pvaluesTable$p.value,4)
     pvaluesTable$p.BH <- format(pvaluesTable$p.BH,4)
     colnames(pvaluesTable) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
     
     pvaluesTable <- datatable(pvaluesTable) %>%
-      formatStyle("P-value(FDR)",backgroundColor = styleInterval(c(input$alphaFDR),c("#b5f2b6","white")))%>%
+      formatStyle(
+        colnames(pvaluesTable), 
+        valueColumns = "P-value",
+        backgroundColor = styleInterval(input$alpha,c("#b5f2b6","white")))%>%
       formatRound(columns=colnames(pvaluesTable), digits=4)
     pvaluesTable
   })
   
+  output$downloadMCA <- downloadHandler(
+    filename = function() {
+      paste("table_multiple_comparisons_analysis.csv", sep = "")
+    },
+    content = function(file) {
+      dataMCA <- significatius()
+      dataMCA$p.value <- format(dataMCA$p.value,4)
+      dataMCA$p.BH <- format(dataMCA$p.BH,4)
+      colnames(dataMCA) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
+      
+      dataMCA$Names <- row.names(dataMCA)
+      dataMCA <- dataMCA[, c("Names", "Contrast Statistic", "P-value", "P-value(FDR)")]
+      write.csv(dataMCA, file, row.names = FALSE, quote = FALSE)
+    }
+  )
   ####
   #
   # Tabla Tukey
   #
   ####
-  output$tableTukey <- DT::renderDataTable({
+  Tukey_test<- function(dataExpression){
+    Tuk <- list()
+    for(i in 1:nrow(exprs(dataExpression))){
+      if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+        Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
+        names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+      }
+    }
+    return(na.omit(Tuk))
+  }
+  
+  calculate_table_Tukey <- reactive({
     a<- significatius()
     g <- which( a[,3] <= input$alpha)
     validate(need(g,"No hi ha cap valor significatiu"))
-    Tukey_test<- function(dataExpression){
-      Tuk <- list()
-      for(i in 1:nrow(exprs(dataExpression))){
-        if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
-          Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
-          names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
-        }
-      }
-      return(na.omit(Tuk))
-    }
     functions <- Functions()
-    Tuk <- Tukey_test(dataExpression())
+    Tuk <- Tukey_test(dataExpression_new())
     tt <- significatius()
     func2<- functions[functions$Gens %in% names(Tuk),]
     names(Tuk) <- paste0(func2$Funcions,"_",func2$Gens)
@@ -280,18 +309,87 @@ server <- function(input, output,session) {
     treats_pvalues <- do.call(rbind, treats_pvalues)
     treats_pvalues <- as.data.frame(treats_pvalues)
     rownames(treats_pvalues) <- names(Tuk)
+    treats_pvalues
+  })
+  
+  calculate_table_Tukey_new <- reactive({
+    # a<- significatius()
+    # g <- which( a[,3] <= input$alpha)
+    # validate(need(g,"No hi ha cap valor significatiu"))
     
-    # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
+    # functions <- Functions()
+    tukey_table <- Tukey_test(dataExpression_new())
+    
+    treats_pvalues <- lapply(tukey_table,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
+    treats_pvalues <- do.call(rbind, treats_pvalues)
+    treats_pvalues <- as.data.frame(treats_pvalues)
+    rownames(treats_pvalues) <- names(tukey_table)
+    treats_pvalues
+  })
+  
+  
+  output$tableTukey <- DT::renderDataTable({
+    treats_pvalues <- calculate_table_Tukey()
     datatable(treats_pvalues) %>%
-      formatStyle(colnames(treats_pvalues),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
+      #formatStyle(colnames(treats_pvalues),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
       formatRound(columns=colnames(treats_pvalues), digits=4)
   })
   
   ######
   #
-  # Tukey plots
+  # Tukey table: Significant Groups
   #
   #####
+  
+  get_treats_names_from_comparisons <- function(treats_comp){
+    treats_comp %>% 
+      strsplit('-') %>% 
+      unlist %>% 
+      unique %>% 
+      sort
+  }
+  
+  calculate_letters <- function(p_values, alpha_value){
+    p_values %>% 
+      names %>% 
+      get_treats_names_from_comparisons ->
+      treats
+    
+    significant_inds <- p_values < alpha_value
+    
+    significant_treats_comp <- colnames(p_values)[significant_inds]
+    significant_treats <- get_treats_names_from_comparisons(significant_treats_comp)
+    significant_treats_comp %>% 
+      strsplit('-') %>% 
+      lapply(sort) ->
+      significant_treats_comp
+    
+    for( signif_treat in significant_treats ){
+      
+    }
+    
+    
+    
+  }
+  
+  pvalues_to_letters <- reactive({
+    alpha_value <- input$alpha
+    treats_pvalues <- calculate_table_Tukey_new()
+    
+  })
+  
+  
+  Tukey_letters<- function(dataExpression){
+    Tuk <- list()
+    for(i in 1:nrow(exprs(dataExpression))){
+      if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+        aov_model <- aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1]))
+        Tuk[[i]] <- HSD.test(aov_model, trt =input$covariables)
+        names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+      }
+    }
+    return(na.omit(Tuk))
+  }
   
   output$tableTreatments <- DT::renderDataTable({
     new_data <- newData()
@@ -309,6 +407,11 @@ server <- function(input, output,session) {
       dcast(variable~treatment, value.var='mean_treatment') ->
       treatment_means
     setnames(treatment_means, 'variable', 'Gene')
+    
+    # browser()
+    
+    # tuket_letters <- Tukey_letters(dataExpression_new())
+    
    
     treatment_means %>% 
       na.omit %>% 

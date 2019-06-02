@@ -10,6 +10,7 @@ GetMaterialAnalizeTabContent <- tabPanel("Analize", GetAnalysisAnalizeSidebar,
               withSpinner(DT::dataTableOutput("tableMCA"),color="#0b295b"),
               br(),
               fluidRow(
+                downloadButton("downloadMCA", "Download"), 
                 actionButton("show1", "Theory of ANOVA",icon=icon("glyphicon glyphicon-info-sign",lib = "glyphicon")),
                 actionButton("show2", "Theory of FDR",icon=icon("glyphicon glyphicon-info-sign",lib = "glyphicon")),
                 actionButton("showi2", "Interpretation Hint",icon=icon("glyphicon glyphicon-question-sign",lib = "glyphicon"),style="color: #fff; background-color: #337ab7; border-color: #2e6da4")
