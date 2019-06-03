@@ -1,5 +1,7 @@
 source(paste0(script.dirname,"server/Analysis/RenderLoadFiles.R"))
 source(paste0(script.dirname,"server/Analysis/GetTukeyPlot.R"))
+source(paste0(script.dirname,"server/Analysis/PCAStats.R"))
+
 server <- function(input, output,session) {
   ##### 
   #Provador
@@ -343,12 +345,23 @@ server <- function(input, output,session) {
   })
   
   
+  
   output$tableTukey <- DT::renderDataTable({
     treats_pvalues <- calculate_table_Tukey()
     datatable(treats_pvalues) %>%
       #formatStyle(colnames(treats_pvalues),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
       formatRound(columns=colnames(treats_pvalues), digits=4)
   })
+  
+  output$downloadTukey <- downloadHandler(
+    filename = function() {
+      paste("table_tukey.csv", sep = "")
+    },
+    content = function(file) {
+      treats_pvalues <- calculate_table_Tukey()
+      write.csv(treats_pvalues, file, row.names = FALSE, quote = FALSE)
+    }
+  )
   
   ######
   #
@@ -392,7 +405,7 @@ server <- function(input, output,session) {
       .[, .(mean_treatment = mean(log10(value))), by= .(variable, treatment)] %>% 
       dcast(variable~treatment, value.var='mean_treatment') ->
       treatment_means
-    setnames(treatment_means, 'variable', 'Gene')
+    setnames(treatment_means, 'variable', 'Genes')
     
     treatment_means
   })
@@ -402,9 +415,23 @@ server <- function(input, output,session) {
     tukey_letters <- Tukey_letters()
     
     format_tukey_letters(tukey_letters, treatment_means) %>% 
+      combine_genes_with_funcions %>% 
       datatable(escape = FALSE)
   })
   
+  # output$downloadTreatments <- downloadHandler(
+  #   filename = function() {
+  #     paste("table_tukey.csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     treatment_means <- calc_treatment_diffs()
+  #     tukey_letters <- Tukey_letters()
+  #     
+  #     format_tukey_letters(tukey_letters, treatment_means) %>% 
+  #       write.csv(file, row.names = FALSE, quote = FALSE)
+  #   }
+  # )
+  # 
   
   format_tukey_letters <- function(tukey_letters, treatment_means, digits=4){
     tukey_letters_table <- do.call(rbind, tukey_letters)
@@ -412,11 +439,11 @@ server <- function(input, output,session) {
       strsplit(".", fixed = TRUE) %>% 
       do.call(rbind, .) %>% 
       .[, 1] ->
-      tukey_letters_table$Gene  
+      tukey_letters_table$Genes  
     
     treatment_means %>% 
-      gather('treatment', 'value', -Gene) %>% 
-      left_join(tukey_letters_table, by=c('Gene', 'treatment')) %>% 
+      gather('treatment', 'value', -Genes) %>% 
+      left_join(tukey_letters_table, by=c('Genes', 'treatment')) %>% 
       mutate(groups = as.character(groups)) %>% 
       mutate(groups = replace_na(groups, '')) ->
       table_res
@@ -626,26 +653,9 @@ server <- function(input, output,session) {
   # Components principals
   #
   #### 
-  output$pca <- renderPlot({
-    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
-    validate(need(input$factors,"Select factors of dataset"))
-    validate(need(input$covariables,"Select covariable of dataset"))
-    newDat <- newData()
-    functions <- Functions()
-    if(provador==T){ newDat <- newData;input$defCol=1;input$orderLine=1}
-    idx <- match(input$factors, names(newDat))
-    idx <- sort(c(idx-1, idx))
-    nw <- log10(newDat[,-idx])
-    nw[[input$covariables]] <- newDat[,input$covariables]
-    mitjanes <- list()
-    for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
-      mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-    }
-    mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
-    colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
-    rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
-    funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
-    mitjanes<- cbind(funcions,mitjanes)
+  
+  plot_pca <- reactive({
+    mitjanes <- calc_treatment_diffs()
     
     pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
     par(mfrow = c(1,2),
@@ -655,6 +665,53 @@ server <- function(input, output,session) {
     plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
     
   })
+  
+  output$pca <- renderPlot({
+    # if(provador==FALSE) validate(need(input$file1,"Insert File!"))
+    # validate(need(input$factors,"Select factors of dataset"))
+    # validate(need(input$covariables,"Select covariable of dataset"))
+    # newDat <- newData()
+    # functions <- Functions()
+    # if(provador==T){ newDat <- newData;input$defCol=1;input$orderLine=1}
+    # idx <- match(input$factors, names(newDat))
+    # idx <- sort(c(idx-1, idx))
+    # nw <- log10(newDat[,-idx])
+    # nw[[input$covariables]] <- newDat[,input$covariables]
+    # mitjanes <- list()
+    # for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
+    #   mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
+    # }
+    # mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
+    # colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
+    # rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
+    # funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
+    # mitjanes<- cbind(funcions,mitjanes)
+    # 
+    # browser()
+    # mitjanes <- calc_treatment_diffs()
+    # 
+    # pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
+    # par(mfrow = c(1,2),
+    #     oma = c(0,0,0,0) + 0.5,
+    #     mar = c(4,4,4,4) + 0.5)
+    # plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
+    # plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
+    
+    plot_pca()
+    
+  })
+  
+  output$downloadPCA <- downloadHandler(
+    filename = "PCA.png",
+    contentType = "image/png",
+    content = function(file) {
+      # png(file=file)
+      # plot_pca()
+      # dev.off()
+    }
+  )
+  
+  
   ####
   #
   # Codi per tancar automaticament l'aplicacio web
