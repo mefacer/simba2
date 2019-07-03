@@ -28,7 +28,7 @@ server <- function(input, output,session) {
   #
   ######
   
-  read_data <- reactive({
+  dt <- reactive({
     inFile <- input$file1 
     if (is.null(inFile))
       return(NULL)
@@ -45,18 +45,16 @@ server <- function(input, output,session) {
           'xlsx'
         ), "Wrong File Format try again!"))
       table1 <- read_xlsx(inFile$datapath,col_names = TRUE,sheet = 1)
-      return(table1)
     }
   })
   
- 
   
   #####
   #
   # Leer las funciones de los genes
   #
   ####
-  get_gene_functions <- reactive({
+  Functions <- reactive({
     inFile <- input$file1 
     if (is.null(inFile))
       return(NULL)
@@ -67,7 +65,6 @@ server <- function(input, output,session) {
         ), "Wrong File Format try again!"))
       table1 <- read_xlsx(inFile$datapath,col_names = TRUE,sheet = 2)
       table1 <- table1[,1:2]
-      return(table1)
     }
   })
   
@@ -79,9 +76,9 @@ server <- function(input, output,session) {
   
   output$NAs <- renderUI({
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
-    div(p(paste0("Total rows: ",nrow(read_data()))),
-        p(paste0("Total columns: ", ncol(read_data()))),
-        p(paste0("Number of NA in database: ",sum(apply(read_data(),1,function(x) sum(is.na(x)))))))
+    div(p(paste0("Total rows: ",nrow(dt()))),
+        p(paste0("Total columns: ", ncol(dt()))),
+        p(paste0("Number of NA in database: ",sum(apply(dt(),1,function(x) sum(is.na(x)))))))
   })
   
   
@@ -95,7 +92,7 @@ server <- function(input, output,session) {
   output$factorSelection<- renderUI({
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     selectizeInput("factors","Select Factors:",
-                   choices = c(colnames(read_data())),selected=NULL, multiple = TRUE)})
+                   choices = c(colnames(dt())),selected=NULL, multiple = TRUE)})
   output$TissueSelection <- renderUI({
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
@@ -105,7 +102,7 @@ server <- function(input, output,session) {
     validate(need(input$covariables,"Select covariable of dataset"))
     selectizeInput("id","Select id variable:",choices = c(input$factors),selected=F, multiple = FALSE)})
   output$TissueCategory <- renderUI({
-    datTiss<- read_data()
+    datTiss<- dt()
     conditionalPanel(condition = "input.Tissue",
                      validate(need(input$factors,"Select Tissue")),
                      selectizeInput("tissuecat","Select Tissue's category:",choices = datTiss[[input$Tissue]],selected=F, multiple = FALSE))})
@@ -121,77 +118,34 @@ server <- function(input, output,session) {
   # Tabla global
   #
   ####
-  gestioNA <- function( new_data, treatment_column, remove0=TRUE, del.badRows=TRUE, noNaMin=-1){
-    ## columns containing factors
-    factor_columns <- c()
-    for( i in 1:ncol(new_data) ){ 
-      if( class(new_data[,i]) =="factor" ) factor_columns<-c(factor_columns,i)
-    } 
-    ## change 0 to NA, if exist
-    if (remove0==TRUE){
-      new_data[!is.na(new_data)&new_data==0] <- NA  ## .............!!!
-    } 
-    
-    ## delete columns all NA's!
-    nacol <- apply(new_data,2,function(x) sum(is.na(x)))
-    if( sum( nacol==nrow(new_data) ) >0 ){ 
-      columnes_eliminar <- which(nacol==nrow(new_data), useNames=TRUE) 
-      new_data <- new_data[, -columnes_eliminar]
-    }  
-    
-    ## delete rows all NA's!
-    new_data_no_factor <- new_data
-    if( length(factor_columns) > 0){
-      new_data_no_factor <- new_data_no_factor[, -factor_columns]
+  newData <- eventReactive(input$Start,{
+    dat <- dt()
+    if(provador==T){dat <- newData}  
+    rowbye <- list()
+    for(i in 1:nrow(dat)){
+      if(sum(is.na(dat[i,]))==(ncol(dat)-length(input$factors))){
+        rowbye[[i]] <- i
+      }else{
+        rowbye[[i]] <- NA
+      }
     }
-    
-    narow <- apply(new_data_no_factor,1,function(x) sum(is.na(x)))  # suma de NA per files
-    if( sum( narow == ncol( new_data_no_factor ) )>0 ){ 
-      files_eliminar <- which( narow == ncol( new_data_no_factor ), useNames=TRUE ) 
-      new_data <- new_data[-files_eliminar, ]
-    }  
-    
-    ## delete rows with 50% or more NA's!  (opcional: del.badRows==TRUE)
-    if( del.badRows==TRUE ){ 
-      condition  <- narow >= floor(0.50*ncol(new_data_no_factor))   # narrow >= numgens/2
-      whichcond  <- which(condition==TRUE,useNames=TRUE)  
-      if(length(whichcond)>0) new_data<-subset(new_data,condition==FALSE)   
+    if(length(na.omit(unlist(rowbye)))>0){
+      dat <- dat[-na.omit(unlist(rowbye)),]
     }
-    ## delete columns (gens) with a too small number of valid replicates
-    ### in one or more treatments
-    ## default threshold: integer part (number of replicates /2)
-    if(noNaMin < 0){
-      noNaMin <- floor(max(table(new_data[, treatment_column]))/2)        
-    } 
-    
-    ## delete rows s.t. number of valid replicates in some treatment is < noNaMin
-    llista <- split(new_data, new_data[, treatment_column])
-    noNASxTrac <- sapply(llista, function(df){
-      apply(df, 2, function(v){
-        sum(!is.na(v))
-      })
-    })
-    noNASxTrac <- t(noNASxTrac)
-    
-    eliminar <- which( apply(noNASxTrac< noNaMin, 2, sum) > 0, useNames=TRUE)
-    new_data <- new_data[-eliminar, ]
-    
-    return(new_data)
-  }
-  
-  
-  get_new_data <- eventReactive(input$Start,{
-    new_data <- read_data() %>% 
-      as.data.frame() %>% 
-      gestioNA(input$covariables, input$del.badRows, input$noNaMin) 
-    
-    new_data <- subset(new_data, new_data[,input$Tissue]==input$tissuecat)
-    rownames(new_data) <- new_data[,input$id] 
-    new_data
+    bad.sample <- list()
+    ##Bye bye NA's
+    for(i in 1:length(levels(as.factor(unlist(dat[,input$covariables]))))){
+      datCat <- subset(dat, dat[,input$covariables]==levels(as.factor(unlist(dat[,input$covariables])[i])))
+      bad.sample[[i]]<- colMeans(is.na(datCat)) > input$NAInput
+    }
+    newData <- as.data.frame(dat[,!colnames(dat) %in% unique(names(which(unlist(bad.sample)==T)))])
+    newData <- subset(newData, newData[,input$Tissue]==input$tissuecat)
+    rownames(newData) <- newData[,input$id] 
+    newData
   })
   
-  data_expression <- eventReactive(input$Start,{
-    newDat <- get_new_data()
+  dataExpression <- eventReactive(input$Start,{
+    newDat <- newData()
     if(provador==T){newDat <- newData}
     newDataFact <- newDat[,input$factors]
     colnames(newDataFact) <- input$factors
@@ -210,8 +164,8 @@ server <- function(input, output,session) {
     Expression
   })
   
-  data_expression_new <- eventReactive(input$Start,{
-    data_set <- get_new_data()
+  dataExpression_new <- eventReactive(input$Start,{
+    data_set <- newData()
     if(provador==T){newDat <- newData}
     data_covars <- data_set[,input$covariables, drop=FALSE]
     
@@ -223,10 +177,37 @@ server <- function(input, output,session) {
       ExpressionSet(phenoData = AnnotatedDataFrame(data=data_covars))
   })
   
- 
+  # GetTukeyList <- eventReactive(input$Start,{
+  #   dat <- dt()
+  #   if(provador==T){dat <- newData}    
+  #   bad.sample <- list()
+  #   ##Bye bye NA's
+  #   for(i in 1:length(levels(as.factor(unlist(dat[,input$covariables]))))){
+  #     datCat <- subset(dat, dat[,input$covariables]==levels(as.factor(unlist(dat[,input$covariables])[i])))
+  #     bad.sample[[i]]<- colMeans(is.na(datCat)) > input$NAInput
+  #   }
+  #   newData <- as.data.frame(dat[,!colnames(dat) %in% unique(names(which(unlist(bad.sample)==T)))])
+  #   newData1 <- subset(newData, newData[,input$Tissue]==input$tissuecat)
+  #   tratnewData <- newData1[,input$covariables]
+  #   idx <- match(input$factors, names(newData1))
+  #   idx <- sort(c(idx-1, idx))
+  #   newData1 <- log10(newData1[,-idx])
+  #   newData1<- cbind(newData1,tratnewData)
+  #   colnames(newData1)[ncol(newData1)] <- input$covariables
+  #   newData2 <- subset(newData, newData[,input$Tissue]!=input$tissuecat)
+  #   tratnewData <- newData2[,input$covariables]
+  #   idx <- match(input$factors, names(newData2))
+  #   idx <- sort(c(idx-1, idx))
+  #   newData2 <- log10(newData2[,-idx])
+  #   newData2<- cbind(newData2,tratnewData)
+  #   colnames(newData2)[ncol(newData2)] <- input$covariables
+  #   llista <- list(newData1,newData2)
+  #   llista
+  # })
+  
   #Load file function server
-  output$table <-renderDataTable({read_data()})
-  output$table2 <- renderDataTable({get_gene_functions()})
+  output$table <-renderDataTable({dt()})
+  output$table2 <- renderDataTable({Functions()})
   ####
   #
   # Tabla gene x samples
@@ -239,22 +220,21 @@ server <- function(input, output,session) {
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
     if(input$checkbox==F){
-      exprs(data_expression())[1:6,1:6]
+      exprs(dataExpression())[1:6,1:6]
     }else if(input$checkbox){
-      exprs(data_expression())
+      exprs(dataExpression())
     }
   },rownames=T)
-  
   ####
   #
   # Tabla Ftests
   #
   ####
   significatius <- reactive({
-    functions <- get_gene_functions()
-    data_expressions <- data_expression_new() 
-    if(provador==T){data_expressions <- Expression}
-    tt=rowFtests(data_expressions,as.factor(pData(data_expressions)[,input$covariables]))
+    functions <- Functions()
+    Express <- dataExpression() 
+    if(provador==T){Express <- Expression}
+    tt=rowFtests(Express,as.factor(pData(Express)[,input$covariables]))
     p.BH = p.adjust(tt[,"p.value"], "BH" )
     tt <- cbind(tt,p.BH)
     tt <- na.omit(tt)
@@ -297,27 +277,46 @@ server <- function(input, output,session) {
       write.csv(dataMCA, file, row.names = FALSE, quote = FALSE)
     }
   )
-  
-  
   ####
   #
-  # Tabla Tukey Post-hoc
+  # Tabla Tukey
   #
   ####
-  Tukey_test<- function(data_expression){
+  Tukey_test<- function(dataExpression){
     Tuk <- list()
-    expressions <- exprs(data_expression)
-    treatments <- as.factor(pData(data_expression)[, 1])
-    
-    for(i in 1:nrow(expressions)){
-      Tuk[[i]] <- TukeyHSD(aov(expressions[i,]~ treatments))
-      names(Tuk)[[i]] <- rownames(expressions)[i]
+    for(i in 1:nrow(exprs(dataExpression))){
+      if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+        Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
+        names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
+      }
     }
     return(na.omit(Tuk))
   }
- 
+  
+  ## OLD version
+  # calculate_table_Tukey <- reactive({
+  #   a<- significatius()
+  #   g <- which( a[,3] <= input$alpha)
+  #   validate(need(g,"No hi ha cap valor significatiu"))
+  #   functions <- Functions()
+  #   Tuk <- Tukey_test(dataExpression_new())
+  #   tt <- significatius()
+  #   func2<- functions[functions$Gens %in% names(Tuk),]
+  #   names(Tuk) <- paste0(func2$Funcions,"_",func2$Gens)
+  #   g <- which(tt[,3]<=input$alphaFDR)
+  #   noms <- as.numeric(names(Tuk) %in% rownames(tt[g,]))
+  #   cac <- as.numeric((t(noms)*(1:length(noms))))
+  #   Tuk <- Tuk[which(cac>0)]
+  #   
+  #   treats_pvalues <- lapply(Tuk,function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE]))
+  #   treats_pvalues <- do.call(rbind, treats_pvalues)
+  #   treats_pvalues <- as.data.frame(treats_pvalues)
+  #   rownames(treats_pvalues) <- names(Tuk)
+  #   treats_pvalues
+  # })
+  
   combine_genes_with_funcions <- function(data_set, gene_column_name = 'Genes'){
-    gene_functions <- get_gene_functions()
+    gene_functions <- Functions()
     colnames(gene_functions)[1] <- gene_column_name
     
     data_set %<>% left_join(gene_functions, by=gene_column_name)
@@ -327,33 +326,30 @@ server <- function(input, output,session) {
   }
   
   calculate_table_Tukey <- reactive({
-    data_expression_new() %>% 
-      Tukey_test() %>% 
-      lapply(function(x) as.data.frame(t(x$treatments[,4, drop=FALSE]))) -> 
-      tukey_table
+    # g <- which( a[,3] <= input$alpha)
+    # validate(need(g,"No hi ha cap valor significatiu"))
+    
+
+    tukey_table <- Tukey_test(dataExpression_new())
     
     tukey_table %>% 
-      rbindlist(fill=TRUE) %>% 
-      as.data.frame()  ->
+      lapply(function(x) t(x$`as.factor(pData(dataExpression)[, 1])`[,4, drop=FALSE])) %>% 
+      do.call(rbind, .) %>% 
+      as.data.frame() ->
       treats_pvalues
     
     treats_pvalues <- cbind(Genes = names(tukey_table), treats_pvalues)
     row.names(treats_pvalues) <- NULL
     
-    treats_pvalues <- combine_genes_with_funcions(treats_pvalues)
-    
-    significatius() %>% 
-      mutate(Genes = rownames(.)) %>% 
-      filter(p.value < input$alpha) %>% 
-      select(Genes) %>% 
-      left_join(treats_pvalues, by='Genes')
-    
+    combine_genes_with_funcions(treats_pvalues)
   })
+  
   
   
   output$tableTukey <- DT::renderDataTable({
     treats_pvalues <- calculate_table_Tukey()
     datatable(treats_pvalues) %>%
+      #formatStyle(colnames(treats_pvalues),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
       formatRound(columns=colnames(treats_pvalues), digits=4)
   })
   
@@ -374,10 +370,10 @@ server <- function(input, output,session) {
   #####
   
   Tukey_letters<- reactive({
-    data_expression <- data_expression_new()
+    dataExpression <- dataExpression_new()
     Tukey_comparisons <- list()
-    gene_expressions <- exprs(data_expression)
-    treatments <- as.factor(pData(data_expression)[,1])
+    gene_expressions <- exprs(dataExpression)
+    treatments <- as.factor(pData(dataExpression)[,1])
     
     for(row_n in 1:nrow(gene_expressions)){
       valid_data = sum(is.na(gene_expressions[row_n,])) < length(gene_expressions[row_n,])-2
@@ -394,8 +390,8 @@ server <- function(input, output,session) {
     return(Tukey_comparisons)
   })
   
-  calc_treatment_means <- reactive({
-    new_data <- get_new_data()
+  calc_treatment_diffs <- reactive({
+    new_data <- newData()
     gene_cols <- setdiff(names(new_data), input$factors)
     sel_cols <- c(input$covariables, gene_cols)
     new_data <- as.data.table(new_data[, sel_cols])
@@ -415,7 +411,7 @@ server <- function(input, output,session) {
   })
   
   output$tableTreatments <- DT::renderDataTable({
-    treatment_means <- calc_treatment_means()
+    treatment_means <- calc_treatment_diffs()
     tukey_letters <- Tukey_letters()
     
     format_tukey_letters(tukey_letters, treatment_means) %>% 
@@ -423,27 +419,19 @@ server <- function(input, output,session) {
       datatable(escape = FALSE)
   })
   
-  remove_subs <- function(values){
-    values %>% 
-      gsub('<sup>', '', .) %>% 
-      gsub('</sup>', '', .) 
-  }
-  
-  output$downloadTreatments <- downloadHandler(
-    filename = function() {
-      paste("table_tukey.csv", sep = "")
-    },
-    content = function(file) {
-      treatment_means <- calc_treatment_means()
-      tukey_letters <- Tukey_letters()
-
-      format_tukey_letters(tukey_letters, treatment_means) %>%
-        combine_genes_with_funcions %>% 
-        sapply(remove_subs) %>% 
-        write.csv(file, row.names = FALSE, quote = FALSE)
-    }
-  )
-
+  # output$downloadTreatments <- downloadHandler(
+  #   filename = function() {
+  #     paste("table_tukey.csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     treatment_means <- calc_treatment_diffs()
+  #     tukey_letters <- Tukey_letters()
+  #     
+  #     format_tukey_letters(tukey_letters, treatment_means) %>% 
+  #       write.csv(file, row.names = FALSE, quote = FALSE)
+  #   }
+  # )
+  # 
   
   format_tukey_letters <- function(tukey_letters, treatment_means, digits=4){
     tukey_letters_table <- do.call(rbind, tukey_letters)
@@ -478,9 +466,9 @@ server <- function(input, output,session) {
   #####
   
   output$tukeyplot<- renderPlot({NULL
-    # newData <- read_data()
+    # newData <- dt()
     # l.dat.pre.data <- GetTukeyList() 
-    # functions <- get_gene_functions()
+    # functions <- Functions()
     # # ff.plot(funcg=functions$Funcions,genes = functions$Funcions, l.dat.pre=l.dat.pre.data, 
     # #                         treat=input$covariables, grup=input$Tissue, alf=input$alphaTukey, 
     # #                         a=0.3,     # desplaçament de l'inici dels rectangles
@@ -506,7 +494,7 @@ server <- function(input, output,session) {
   #   
   ####  
   cols <- reactive({
-    newDataCol <- get_new_data()
+    newDataCol <- newData()
     colins <- c("black","green","blue","red","yellow","orange","royalblue") 
     
     lapply(1:length(levels(as.factor(newDataCol[[input$covariables]]))), function(i) {
@@ -517,14 +505,14 @@ server <- function(input, output,session) {
   
   
   colors <- reactive({
-    newDat <- get_new_data()
+    newDat <- newData()
     lapply(1:length(levels(as.factor(newDat[[input$covariables]]))), function(i) {
       input[[paste("col", i, sep="_")]]
     })
   })
   
   treat <- reactive({
-    dat<- read_data()
+    dat<- dt()
     selectizeInput("treatcat","Select treat category:",choices = dat[[input$covariables]],selected=T, multiple = FALSE)
   })
   
@@ -534,8 +522,8 @@ server <- function(input, output,session) {
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
-    newDat <- get_new_data()
-    functions <- get_gene_functions()
+    newDat <- newData()
+    functions <- Functions()
     if(provador==T){ newDat <- newData;    input$treatcat <- 1;input$defCol=1;input$orderLine=1}
     idx <- match(input$factors, names(newDat))
     idx <- sort(c(idx-1, idx))
@@ -636,25 +624,25 @@ server <- function(input, output,session) {
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
-    newDat <- get_new_data()
+    newDat <- newData()
     if(provador==T){
       newDat <- newData;
       Covariable<- as.factor(pData(Expression)[,input$covariables])
       nomscols <- functions[functions$Gens %in% rownames(Expression),"Funcions"]
       Covariable <- as.data.frame(Covariable)
     }
-    functions<- get_gene_functions()
-    nomscols <- data.frame("Funcions"=functions[functions$Gens %in% rownames(exprs(data_expression())),"Funcions"])
-    rownames(nomscols) <- unlist(functions[functions$Gens %in% rownames(exprs(data_expression())),"Gens"])
-    Covariable<- as.factor(pData(data_expression())[,input$covariables])
+    functions<- Functions()
+    nomscols <- data.frame("Funcions"=functions[functions$Gens %in% rownames(exprs(dataExpression())),"Funcions"])
+    rownames(nomscols) <- unlist(functions[functions$Gens %in% rownames(exprs(dataExpression())),"Gens"])
+    Covariable<- as.factor(pData(dataExpression())[,input$covariables])
     Covariable <- as.data.frame(Covariable)
     colnames(Covariable) <- input$covariables
-    rownames(Covariable) <- colnames(exprs(data_expression()))
+    rownames(Covariable) <- colnames(exprs(dataExpression()))
     divergent_viridis_magma <- c(viridis(10, begin = 0.3), rev(magma(10, begin = 0.3)))
     rwb <- colorRampPalette(colors = c("darkred", "white", "darkgreen"))
     BrBG <- colorRampPalette(brewer.pal(11, "BrBG"))
     Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
-    heatmaply(exprs(data_expression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
+    heatmaply(exprs(dataExpression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
       colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 1) %>%
       colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 2)
     
@@ -667,7 +655,7 @@ server <- function(input, output,session) {
   #### 
   
   plot_pca <- reactive({
-    mitjanes <- calc_treatment_means()
+    mitjanes <- calc_treatment_diffs()
     
     pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
     par(mfrow = c(1,2),
@@ -679,7 +667,38 @@ server <- function(input, output,session) {
   })
   
   output$pca <- renderPlot({
+    # if(provador==FALSE) validate(need(input$file1,"Insert File!"))
+    # validate(need(input$factors,"Select factors of dataset"))
+    # validate(need(input$covariables,"Select covariable of dataset"))
+    # newDat <- newData()
+    # functions <- Functions()
+    # if(provador==T){ newDat <- newData;input$defCol=1;input$orderLine=1}
+    # idx <- match(input$factors, names(newDat))
+    # idx <- sort(c(idx-1, idx))
+    # nw <- log10(newDat[,-idx])
+    # nw[[input$covariables]] <- newDat[,input$covariables]
+    # mitjanes <- list()
+    # for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
+    #   mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
+    # }
+    # mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
+    # colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
+    # rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
+    # funcions<- functions[unlist(functions[,1]) %in% colnames(nw),2]
+    # mitjanes<- cbind(funcions,mitjanes)
+    # 
+    # browser()
+    # mitjanes <- calc_treatment_diffs()
+    # 
+    # pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
+    # par(mfrow = c(1,2),
+    #     oma = c(0,0,0,0) + 0.5,
+    #     mar = c(4,4,4,4) + 0.5)
+    # plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
+    # plot(pcajetr,choix="ind",habillage=1,label="quali",cex.main=0.7)
+    
     plot_pca()
+    
   })
   
   output$downloadPCA <- downloadHandler(
@@ -691,107 +710,6 @@ server <- function(input, output,session) {
       # dev.off()
     }
   )
-  
-  
-  ####
-  #
-  # Components principals II
-  #
-  #### 
-  
-  # output$pca2 <- renderPlot({
-  #   funcpca()
-  # })
-  # 
-  output$pca2 <- renderPlot({
-    # funcpca()
-  })
-  
-  funcpca<-reactive({
-    eixos=c(1,2)
-    coltract=c("black","orange","red")
-    gruix=1.7
-    gris=4
-    limcos2=0.5
-    cextit=.7
-    cexleg=.6
-    cexlab=.6
-    cexax=.6
-    cexlletra=.7
-    # nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,
-    # data=datJejunal[,-c(1:3)]
-    # gsignif=tab1  
-    # eixos=c(1,3)
-    
-    browser()
-    new_data <- get_new_data()
-    
-    new_data %>% 
-      colnames %>% 
-      setdiff(input$factors) ->
-      selected_columns
-    treatment <- new_data %>% select(input$covariables)
-    
-    new_data %<>% select(selected_columns) 
-    
-    ## impute NAs with EM-algorithm to improve default imputation by mean value
-    if (sum(is.na(new_data))!=0){
-      new_data<-imputePCA(new_data)$completeObs
-      # sum(is.na(new_data.i_1)) ## must be 0
-    }
-    new_data.i<-cbind(treatment, new_data)
-    
-    pcaout<-PCA(new_data,quali.sup=1,graph=F)
-    
-    # colnames(new_data.i[-1]) %>%  ## only genes
-    #   data.frame(Genes=.) %>% 
-    #   combine_genes_with_funcions ->
-    #   nomfun
-    # nomfun<-asig.func(genes=nomgen,funs=nivellsfunc)
-    # nomfun <- combine_genes_with_funcions(data.frame(Genes=nomgen))
-    
-    par(mfrow = c(1,2),
-        oma = c(0,0,0,0) + 0.5,
-        mar = c(4,4,1,2) + 0.2)
-    
-    ## individuals graph
-    plot.PCA(pcaout,choix="ind",axes=eixos, invisible="quali", habillage=1, col.hab=coltract, lwd=gruix, cex.main=cextit, cex=cexlletra, cex.lab=cexlab, cex.axis=cexax)  
-    # legend("topleft", nomstr, cex=cexleg, col=coltract,lty=1, title="Treatment",bg="white")
-    plot(pcaout,choix="var",col.var="blue",cex.main=0.7)
-    
-    ## variables graph
-    ## only genes with a quality over threshold in limcos2
-    ###  and being significant, that is, belong to the table gsignif
-    
-    pcaux<-pcaout
-    pcaqual2<-apply(pcaux$var$cos2[,eixos],1,sum) 
-    ## subset of pcaout
-    ### significant genes and quality over threshold
-    pcaux$var$coord<-subset(pcaux$var$coord,rownames(pcaux$var$coord)%in% rownames(gsignif)& pcaqual2 > limcos2) 
-    pcaux$var$cos2 <-subset(pcaux$var$cos2,rownames(pcaux$var$cos2)%in% rownames(gsignif)& pcaqual2 > limcos2)
-    
-    # gray color is the baseline color for variables, overprinted with functions colors afterwards
-    colorbase<-gray.colors(1,0.3+gris*0.05,0.3+gris*0.1)
-    plot(pcaux, axes=eixos, choix="var", col.var=colorbase, 
-         lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)  
-    
-    # same colors as in heatmap
-    ng<-nrow(pcaux$var$coord)
-    nomgenaux<-rownames(pcaux$var$coord)
-    nomfuncaux<-asig.func(nomgenaux,nivellsfunc)
-    colaux<-character()
-    for (i in 1:ng){## i<-1
-      fila<-which(rownames(levels_func)==nomgenaux[i])
-      colaux[i]<-levels_func[fila,3]           
-    }
-    for (i in 1:ng)
-      arrows(x0=0,y0=0,x1=pcaux$var$coord[i,eixos[1]],
-             y1=pcaux$var$coord[i,eixos[2]],col=colaux[i], angle = 14,length=.1)
-    # legend
-    colors<-unique(colaux)
-    funcaux<-unique(nomfuncaux)
-    legend("topleft",legend=funcaux, col=colors,cex=cexleg,lty=1,title="Functions")
-  })
   
   
   ####
@@ -814,9 +732,9 @@ server <- function(input, output,session) {
   ######
   llistaTables <- reactive({
     llista <- list()
-    llista[[1]] <- read_data() #guardem la taula principal
-    llista[[2]] <- get_gene_functions() #guardem les funcions
-    # llista[[3]] <- as.data.frame(exprs(data_expression()))#guardem la matriu d'expressió
+    llista[[1]] <- dt() #guardem la taula principal
+    llista[[2]] <- Functions() #guardem les funcions
+    # llista[[3]] <- as.data.frame(exprs(dataExpression()))#guardem la matriu d'expressió
     # tt <- significatius()
     # tt <- na.omit(tt)
     # tt$p.value <- format(tt$p.value,4)
@@ -832,20 +750,20 @@ server <- function(input, output,session) {
     # a<- significatius()
     # g <- which( a[,3] <= input$alpha)
     # validate(need(g,"No hi ha cap valor significatiu"))
-    # Tukey_test<- function(data_expression){
+    # Tukey_test<- function(dataExpression){
     #   Tuk <- list()
-    #   for(i in 1:nrow(exprs(data_expression))){
-    #     if( sum(is.na(exprs(data_expression)[i,])) < length(exprs(data_expression)[i,])-2){
-    #       Tuk[[i]] <- TukeyHSD(aov(exprs(data_expression)[i,]~ as.factor(pData(data_expression)[,1])))
-    #       names(Tuk)[[i]] <- rownames(exprs(data_expression))[i]
+    #   for(i in 1:nrow(exprs(dataExpression))){
+    #     if( sum(is.na(exprs(dataExpression)[i,])) < length(exprs(dataExpression)[i,])-2){
+    #       Tuk[[i]] <- TukeyHSD(aov(exprs(dataExpression)[i,]~ as.factor(pData(dataExpression)[,1])))
+    #       names(Tuk)[[i]] <- rownames(exprs(dataExpression))[i]
     #     }
     #   }
     #   return(na.omit(Tuk))
     # }
-    # Tuk <- Tukey_test(data_expression())
+    # Tuk <- Tukey_test(dataExpression())
     # tt <- significatius()
     # names(Tuk) <- rownames(tt)
-    # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(data_expression)[, 1])`[,4], USE.NAMES = F))))
+    # dataTuk <- as.data.frame(na.omit(t(sapply(Tuk,function(x) x$`as.factor(pData(dataExpression)[, 1])`[,4], USE.NAMES = F))))
     # dataTuk <- dataTuk[rowSums(dataTuk <= input$alphaTukey)>=1,]
     # dataTuk <- datatable(dataTuk) %>%
     #   formatStyle(colnames(dataTuk),backgroundColor = styleInterval(c(input$alphaTukey),c("#b5f2b6","white"))) %>%
