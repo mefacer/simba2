@@ -123,10 +123,8 @@ server <- function(input, output,session) {
   ####
   gestioNA <- function( new_data, treatment_column, remove0=TRUE, del.badRows=TRUE, noNaMin=-1){
     ## columns containing factors
-    factor_columns <- c()
-    for( i in 1:ncol(new_data) ){ 
-      if( class(new_data[,i]) =="factor" ) factor_columns<-c(factor_columns,i)
-    } 
+    factor_columns <- input$factors
+    treatment_column <- input$covariables
     ## change 0 to NA, if exist
     if (remove0==TRUE){
       new_data[!is.na(new_data)&new_data==0] <- NA  ## .............!!!
@@ -139,13 +137,12 @@ server <- function(input, output,session) {
       new_data <- new_data[, -columnes_eliminar]
     }  
     
-    ## delete rows all NA's!
-    new_data_no_factor <- new_data
-    if( length(factor_columns) > 0){
-      new_data_no_factor <- new_data_no_factor[, -factor_columns]
-    }
+    new_data %>% 
+      select(-factor_columns) ->
+      new_data_no_factor 
     
-    narow <- apply(new_data_no_factor,1,function(x) sum(is.na(x)))  # suma de NA per files
+    ## delete rows all NA's!
+    narow <- apply(new_data_no_factor, 1, function(x) sum(is.na(x)))  # suma de NA per files
     if( sum( narow == ncol( new_data_no_factor ) )>0 ){ 
       files_eliminar <- which( narow == ncol( new_data_no_factor ), useNames=TRUE ) 
       new_data <- new_data[-files_eliminar, ]
@@ -157,6 +154,7 @@ server <- function(input, output,session) {
       whichcond  <- which(condition==TRUE,useNames=TRUE)  
       if(length(whichcond)>0) new_data<-subset(new_data,condition==FALSE)   
     }
+    
     ## delete columns (gens) with a too small number of valid replicates
     ### in one or more treatments
     ## default threshold: integer part (number of replicates /2)
@@ -164,7 +162,7 @@ server <- function(input, output,session) {
       noNaMin <- floor(max(table(new_data[, treatment_column]))/2)        
     } 
     
-    ## delete rows s.t. number of valid replicates in some treatment is < noNaMin
+    ## delete cols s.t. number of valid replicates in some treatment is < noNaMin
     llista <- split(new_data, new_data[, treatment_column])
     noNASxTrac <- sapply(llista, function(df){
       apply(df, 2, function(v){
@@ -174,18 +172,17 @@ server <- function(input, output,session) {
     noNASxTrac <- t(noNASxTrac)
     
     eliminar <- which( apply(noNASxTrac< noNaMin, 2, sum) > 0, useNames=TRUE)
-    new_data <- new_data[-eliminar, ]
-    
+    if(length(eliminar) > 0){
+      new_data <- new_data[-eliminar]      
+    }
     return(new_data)
   }
   
   
   get_new_data <- eventReactive(input$Start,{
-    new_data <- read_data() %>% 
-      as.data.frame() %>% 
-      gestioNA(input$covariables, input$del.badRows, input$noNaMin) 
-    
-    new_data <- subset(new_data, new_data[,input$Tissue]==input$tissuecat)
+    new_data <- read_data() %>% as.data.frame() 
+    new_data <- subset(new_data, new_data[,input$Tissue]==input$tissuecat) 
+    new_data <- gestioNA(new_data, input$covariables, input$del.badRows, input$noNaMin) 
     rownames(new_data) <- new_data[,input$id] 
     new_data
   })
@@ -250,7 +247,30 @@ server <- function(input, output,session) {
   # Tabla Ftests
   #
   ####
+  
   significatius <- reactive({
+    
+    new_data <- get_new_data()
+    gene_cols <- setdiff(colnames(new_data), input$factors)
+    new_data_gene <- new_data[, gene_cols]
+    treatment <- new_data[, input$covariables]
+    
+    statistic<-apply(new_data_gene, 2, function(x){ 
+      summary(aov(x~treatment))[[1]]['F value'][1,1]
+    })
+    p.value<-apply(new_data_gene,2, function(x){
+      summary(aov(x~treatment))[[1]]['Pr(>F)'][1,1]
+    })
+    
+    data.frame(Genes=colnames(new_data_gene), statistic, p.value, stringsAsFactors = FALSE) %>% 
+      mutate(p.BH=p.adjust(p.value, "BH" )) %>% 
+      combine_genes_with_funcions ->
+      result_data
+    
+    return(result_data)
+  })
+    
+  significatius_old <- reactive({
     functions <- get_gene_functions()
     data_expressions <- data_expression_new() 
     if(provador==T){data_expressions <- Expression}
@@ -269,9 +289,7 @@ server <- function(input, output,session) {
     validate(need(input$covariables,"Select covariable"))
     
     pvaluesTable <- significatius()
-    pvaluesTable$p.value <- format(pvaluesTable$p.value,4)
-    pvaluesTable$p.BH <- format(pvaluesTable$p.BH,4)
-    colnames(pvaluesTable) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
+    colnames(pvaluesTable) <- c("Genes", "Contrast Statistic", "P-value", "P-value(FDR)")
     
     pvaluesTable <- datatable(pvaluesTable) %>%
       formatStyle(
@@ -343,7 +361,6 @@ server <- function(input, output,session) {
     treats_pvalues <- combine_genes_with_funcions(treats_pvalues)
     
     significatius() %>% 
-      mutate(Genes = rownames(.)) %>% 
       filter(p.value < input$alpha) %>% 
       select(Genes) %>% 
       left_join(treats_pvalues, by='Genes')
@@ -418,8 +435,14 @@ server <- function(input, output,session) {
     treatment_means <- calc_treatment_means()
     tukey_letters <- Tukey_letters()
     
+    significatius() %>% 
+      select(Genes, p.value) %>% 
+      mutate(p.values = round(p.value, digits=4)) ->
+      genes_sign
+    
     format_tukey_letters(tukey_letters, treatment_means) %>% 
       combine_genes_with_funcions %>% 
+      left_join(genes_sign) %>% 
       datatable(escape = FALSE)
   })
   
@@ -615,13 +638,15 @@ server <- function(input, output,session) {
     # a<- significatius()
     # g <- which( a[,3] <= input$alpha)
     # validate(need(g,"No hi ha cap valor significatiu"))
-    sign<- significatius()
-    if(provador==T){sign <- tt}
-    sign <- na.omit(sign)
-    if(length(sign)>0){
-      signAblines<- rownames(sign[sign$p.BH<=input$alpha,])
-      signAblines<- which(nomsfinals %in% signAblines)
-      for(i in 1:length(signAblines)) abline(v=signAblines[i],col="black",lty="dotted")
+    significatius() %>% 
+      filter(p.value < input$alpha) %>% 
+      select(Genes) %>% 
+      .[, 1] ->
+      sign_genes
+    
+    ind_sign <- which(sapply(nomsfinals, function(nom) nom %in% sign_genes))
+    if( length(ind_sign)>0 ){
+      abline(v=ind_sign,col="black",lty="dotted")
     }
     legend("topright",paste0("T",1:length(levels(as.factor(newDat[,input$covariables])))), cex=0.8, col=colorins,lty=1, title=input$covariables)
     
@@ -699,17 +724,26 @@ server <- function(input, output,session) {
   #
   #### 
   
-  # output$pca2 <- renderPlot({
-  #   funcpca()
-  # })
+  color_treatment <- reactive({
+    get_new_data() %>% 
+      select(input$covariables) %>% 
+      .[, 1] %>% 
+      unique -> 
+      treatments
+    
+    col_pal <- brewer.pal(length(treatments), 'Set3')
+    col_pal <- col_pal[1:min(length(treatments), length(col_pal))]
+    data.frame(treatment = treatments, color = col_pal)
+  })
+  
   # 
   output$pca2 <- renderPlot({
-    # funcpca()
+    funcpca()
   })
   
   funcpca<-reactive({
     eixos=c(1,2)
-    coltract=c("black","orange","red")
+    # coltract=c("black","orange","red")
     gruix=1.7
     gris=4
     limcos2=0.5
@@ -723,7 +757,6 @@ server <- function(input, output,session) {
     # gsignif=tab1  
     # eixos=c(1,3)
     
-    browser()
     new_data <- get_new_data()
     
     new_data %>% 
@@ -731,8 +764,9 @@ server <- function(input, output,session) {
       setdiff(input$factors) ->
       selected_columns
     treatment <- new_data %>% select(input$covariables)
-    
     new_data %<>% select(selected_columns) 
+    
+    treatment_color <- color_treatment()
     
     ## impute NAs with EM-algorithm to improve default imputation by mean value
     if (sum(is.na(new_data))!=0){
@@ -743,54 +777,91 @@ server <- function(input, output,session) {
     
     pcaout<-PCA(new_data,quali.sup=1,graph=F)
     
-    # colnames(new_data.i[-1]) %>%  ## only genes
-    #   data.frame(Genes=.) %>% 
-    #   combine_genes_with_funcions ->
-    #   nomfun
-    # nomfun<-asig.func(genes=nomgen,funs=nivellsfunc)
-    # nomfun <- combine_genes_with_funcions(data.frame(Genes=nomgen))
-    
     par(mfrow = c(1,2),
         oma = c(0,0,0,0) + 0.5,
-        mar = c(4,4,1,2) + 0.2)
+        mar = c(4,4,4,4) + 0.5)
     
+    legend_opts <- list(
+      x="topleft", 
+      legend=treatment_color$treatment, 
+      cex=cexleg, 
+      # col=treatment_color$color,
+      # lty=1, 
+      title=input$covariables,
+      bg="white")
+
     ## individuals graph
-    plot.PCA(pcaout,choix="ind",axes=eixos, invisible="quali", habillage=1, col.hab=coltract, lwd=gruix, cex.main=cextit, cex=cexlletra, cex.lab=cexlab, cex.axis=cexax)  
-    # legend("topleft", nomstr, cex=cexleg, col=coltract,lty=1, title="Treatment",bg="white")
-    plot(pcaout,choix="var",col.var="blue",cex.main=0.7)
+    data.frame(treatment=treatment[, 1]) %>% 
+      left_join(treatment_color, by='treatment') %>% 
+      .[, 'color'] ->
+      sample_colors
     
+    plot(pcaout,
+         choix="ind",
+         axes=eixos,
+         invisible="quali",
+         habillage=1,
+         col.hab=sample_colors %>% as.character(),
+         lwd=gruix,
+         cex.main=cextit,
+         cex=cexlletra,
+         cex.lab=cexlab,
+         cex.axis=cexax,
+         legend=legend_opts )
+
+
     ## variables graph
     ## only genes with a quality over threshold in limcos2
     ###  and being significant, that is, belong to the table gsignif
     
     pcaux<-pcaout
-    pcaqual2<-apply(pcaux$var$cos2[,eixos],1,sum) 
+    pcaqual2<-apply(pcaux$var$cos2[,eixos],1,sum)
     ## subset of pcaout
     ### significant genes and quality over threshold
-    pcaux$var$coord<-subset(pcaux$var$coord,rownames(pcaux$var$coord)%in% rownames(gsignif)& pcaqual2 > limcos2) 
-    pcaux$var$cos2 <-subset(pcaux$var$cos2,rownames(pcaux$var$cos2)%in% rownames(gsignif)& pcaqual2 > limcos2)
+    
+    significatius() %>% 
+      subset(p.value < input$alpha) %>% 
+      select(Genes) %>% 
+      .[, 1] ->
+      sign_genes
+    ind_limcos <- pcaqual2 > limcos2
+    
+    rownames(pcaux$var$coord) %>% 
+      data.frame(Genes=., stringsAsFactors = FALSE) %>% 
+      combine_genes_with_funcions() ->
+      genes
+    ind_sign <- sapply(genes, function(x) x %in% sign_genes)
+    pcaux$var$coord <- pcaux$var$coord[ind_sign & ind_limcos, ]
+    
+    rownames(pcaux$var$cos2) %>% 
+      data.frame(Genes=., stringsAsFactors = FALSE) %>% 
+      combine_genes_with_funcions() ->
+      genes
+    ind_sign <- sapply(genes, function(x) x %in% sign_genes)
+    pcaux$var$cos2 <- pcaux$var$cos2[ind_sign & ind_limcos, ]
+    
     
     # gray color is the baseline color for variables, overprinted with functions colors afterwards
     colorbase<-gray.colors(1,0.3+gris*0.05,0.3+gris*0.1)
-    plot(pcaux, axes=eixos, choix="var", col.var=colorbase, 
-         lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)  
-    
+    plot(pcaux, axes=eixos, choix="var", col.var=colorbase,
+         lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
+
     # same colors as in heatmap
-    ng<-nrow(pcaux$var$coord)
-    nomgenaux<-rownames(pcaux$var$coord)
-    nomfuncaux<-asig.func(nomgenaux,nivellsfunc)
-    colaux<-character()
-    for (i in 1:ng){## i<-1
-      fila<-which(rownames(levels_func)==nomgenaux[i])
-      colaux[i]<-levels_func[fila,3]           
-    }
-    for (i in 1:ng)
-      arrows(x0=0,y0=0,x1=pcaux$var$coord[i,eixos[1]],
-             y1=pcaux$var$coord[i,eixos[2]],col=colaux[i], angle = 14,length=.1)
-    # legend
-    colors<-unique(colaux)
-    funcaux<-unique(nomfuncaux)
-    legend("topleft",legend=funcaux, col=colors,cex=cexleg,lty=1,title="Functions")
+    # ng<-nrow(pcaux$var$coord)
+    # nomgenaux<-rownames(pcaux$var$coord)
+    # nomfuncaux<-asig.func(nomgenaux,nivellsfunc)
+    # colaux<-character()
+    # for (i in 1:ng){## i<-1
+    #   fila<-which(rownames(levels_func)==nomgenaux[i])
+    #   colaux[i]<-levels_func[fila,3]
+    # }
+    # for (i in 1:ng)
+    #   arrows(x0=0,y0=0,x1=pcaux$var$coord[i,eixos[1]],
+    #          y1=pcaux$var$coord[i,eixos[2]],col=colaux[i], angle = 14,length=.1)
+    # # legend
+    # colors<-unique(colaux)
+    # funcaux<-unique(nomfuncaux)
+    # legend("topleft",legend=funcaux, col=colors,cex=cexleg,lty=1,title="Functions")
   })
   
   
