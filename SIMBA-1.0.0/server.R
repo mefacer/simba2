@@ -209,7 +209,7 @@ server <- function(input, output,session) {
     idx <- sort(c(idx-1, idx))
     data.idx <- newDat[,-idx]
     data.idx2 <- apply(data.idx,2,function(x) as.numeric(x))
-    nw <- log10(data.idx2)
+    nw <- data.idx2
     rownames(nw) <- rownames(data.idx)
     colnames(nw) <- colnames(data.idx)
     #nw <- subset(newData, colnames(newData) %in% input$factors)
@@ -260,7 +260,6 @@ server <- function(input, output,session) {
   
   significatius <- reactive({
     
-    browser()
     new_data <- get_new_data()
     gene_cols <- setdiff(colnames(new_data), input$factors)
     new_data_gene <- new_data[, gene_cols]
@@ -575,7 +574,7 @@ server <- function(input, output,session) {
     idx <- sort(c(idx-1, idx))
     data.idx <- newDat[,-idx]
     data.idx2 <- apply(data.idx,2,function(x) as.numeric(x))
-    nw <- as.data.frame(log10(data.idx2))
+    nw <- as.data.frame(data.idx2)
     rownames(nw) <- rownames(data.idx)
     colnames(nw) <- colnames(data.idx)
     nw[[input$covariables]] <- newDat[,input$covariables]
