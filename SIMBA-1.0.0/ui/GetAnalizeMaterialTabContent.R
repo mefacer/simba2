@@ -38,7 +38,7 @@ GetMaterialAnalizeTabContent <- tabPanel("Analize", GetAnalysisAnalizeSidebar,
               actionButton("showi4","Interpretation Hint",icon=icon("glyphicon glyphicon-question-sign",lib = "glyphicon"),style="color: #fff; background-color: #337ab7; border-color: #2e6da4")),
               hr(),
               p(HTML(paste("<b>","PCA: principal components analysis ","</b>"))),
-              withSpinner(plotOutput("pca2", height="auto"),color="#0b295b"),
+              withSpinner(plotOutput("pca2"),color="#0b295b"),
               fluidRow(
                 # downloadButton("downloadPCA"),
                 actionButton("show4", "Theory of PCA",icon=icon("glyphicon glyphicon-info-sign",lib = "glyphicon")),
