@@ -2,7 +2,7 @@
 
 ##script.dirname <- "/home/anrodriguez/simba/SIMBA-1.0.0/"
 
-script.dirname <- "/Users/aleixrvr/Projects/Code/simba2/SIMBA-1.0.0/"
+script.dirname <- paste0(getwd(),"/")
 
 source(paste0(script.dirname,"init.R")) # Script per obrir tots els paquets necesaris
 source(paste0(script.dirname,"ui.R")) # User Interface
