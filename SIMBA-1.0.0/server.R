@@ -183,6 +183,16 @@ server <- function(input, output,session) {
     new_data <- read_data() %>% as.data.frame() 
     new_data <- subset(new_data, new_data[,input$Tissue]==input$tissuecat) 
     new_data <- gestioNA(new_data, input$covariables, input$del.badRows, input$noNaMin) 
+    
+    colnames(new_data) %>% 
+      setdiff(input$factors) %>% 
+      setdiff(input$covariables) ->
+      gene_cols
+    
+    for( col in gene_cols ){
+      new_data[[col]] <- log10(new_data[[col]])
+    }
+    
     rownames(new_data) <- new_data[,input$id] 
     new_data
   })
@@ -250,10 +260,11 @@ server <- function(input, output,session) {
   
   significatius <- reactive({
     
+    browser()
     new_data <- get_new_data()
     gene_cols <- setdiff(colnames(new_data), input$factors)
     new_data_gene <- new_data[, gene_cols]
-    treatment <- new_data[, input$covariables]
+    treatment <- as.factor(new_data[, input$covariables])
     
     statistic<-apply(new_data_gene, 2, function(x){ 
       summary(aov(x~treatment))[[1]]['F value'][1,1]
@@ -423,7 +434,7 @@ server <- function(input, output,session) {
     setnames(melted_data, input$covariables, 'treatment')
     
     melted_data %>% 
-      .[, .(mean_treatment = mean(log10(na.omit(value)))), by= .(variable, treatment)] %>% 
+      .[, .(mean_treatment = mean(na.omit(value))), by= .(variable, treatment)] %>% 
       dcast(variable~treatment, value.var='mean_treatment') ->
       treatment_means
     setnames(treatment_means, 'variable', 'Genes')
