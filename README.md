@@ -14,8 +14,8 @@ git clone https://github.com/djangosee/TFGShinyApp.git
 ### Cómo abrir la aplicación con Rstudio
 
 1. Extraer el ".ZIP" en una carpeta local.
-2. Abrir el script App.R
-4. Ejecutar todas las lineas de código que encontramos en App.r; La aplicación se abrirá automáticamente.
+2. Ejecutar el proyecto `simba2.Rproj`
+3. Ejecutar todas las lineas de código que encontramos en App.r; La aplicación se abrirá automáticamente.
 
 ## GIF **ExampleFile.xlsx**
 

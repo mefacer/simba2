@@ -569,7 +569,7 @@ server <- function(input, output,session) {
   })
   
   get_default_colors <- function(){
-    c("black","green","blue","red","yellow","orange","royalblue") 
+    c("black","green","blue","red","yellow","orange","royalblue", 'darkgoldenrod1', 'darkorchid', 'forestgreen', 'darkslategrey') 
   }
   
   get_function_colors <- reactive({
@@ -581,7 +581,7 @@ server <- function(input, output,session) {
   })
   
   get_treatment_colors <- reactive({
-    treatments <- get_new_data()[, input$covariables] %>% unique
+    treatments <- as.character(get_new_data()[, input$covariables] %>% unique)
     treatments_n <- length(treatments)
     if(as.numeric(input$defCol) == 1 ) {
       colorins <- get_default_colors()[1:treatments_n]
@@ -837,6 +837,7 @@ server <- function(input, output,session) {
       setdiff(input$factors) ->
       selected_columns
     treatment <- new_data %>% select(input$covariables)
+    treatment[, 1] <- as.factor(treatment[, 1])
     new_data %<>% select(selected_columns) 
     
     treatment_color <- color_treatment()
@@ -854,31 +855,33 @@ server <- function(input, output,session) {
         oma = c(0,0,0,0) + 0.5,
         mar = c(4,4,4,4) + 0.5)
     
-    legend_opts <- list(
-      x="topleft", 
-      legend=get_treatment_colors()[, 'treatments'], 
-      cex=cexleg, 
-      col=get_treatment_colors()[, 'colors'],
-      # lty=1, 
-      title=input$covariables,
-      bg="white")
+
 
     ## individuals graph
-    colorize_treatments <- assign_class_colors(treatment[, 1], get_treatment_colors(), 'treatments')
+    colorize_treatments <- assign_class_colors(as.character(treatment[, 1]), get_treatment_colors(), 'treatments')
     
     plot(pcaout,
          choix="ind",
          axes=eixos,
          invisible="quali",
-         habillage=1,
-         col.hab=colorize_treatments %>% as.character(),
+         # habillage=1,
+         # col.hab=get_treatment_colors()[, 'colors'],
+         col.ind=colorize_treatments,
          lwd=gruix,
          cex.main=cextit,
          cex=cexlletra,
          cex.lab=cexlab,
-         cex.axis=cexax,
-         legend=legend_opts )
-
+         cex.axis=cexax)
+    
+    legend(
+      x="topleft", 
+      legend=get_treatment_colors()[, 'treatments'], 
+      cex=cexleg, 
+      col=get_treatment_colors()[, 'colors'],
+      text.col=get_treatment_colors()[, 'colors'],
+      lty=1,
+      title=input$covariables,
+      bg="white")
 
     ## variables graph
     ## only genes with a quality over threshold in limcos2
@@ -894,6 +897,7 @@ server <- function(input, output,session) {
       select(Genes) %>% 
       .[, 1] ->
       sign_genes
+    
     ind_limcos <- pcaqual2 > limcos2
     
     rownames(pcaux$var$coord) %>% 
@@ -913,6 +917,11 @@ server <- function(input, output,session) {
     
     gene_functions <- get_gene_functions()
     colnames(gene_functions)[1] <- 'Genes'
+    
+    if(length(rownames(pcaux$var$cos2))==0){
+      return()
+    }
+    
     rownames(pcaux$var$cos2) %>%
       data.frame(Genes=.) %>% 
       left_join(gene_functions) ->
