@@ -1,0 +1,26 @@
+\frametitle{\bsmall En algun gen (y cuál o cuales) hay diferencias significativas entre los niveles de expresión entre tatamientos? \esmall }
+
+\begin{itemize}
+\tightlist
+\item
+  ANOVA per comparar mitjanes entre grups/tractaments.
+\end{itemize}
+
+\begin{verbatim}
+## Loading required package: xtable
+\end{verbatim}
+
+\% latex table generated in R 3.4.3 by xtable 1.8-2 package \% Thu Sep 6
+19:06:17 2018
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrr}
+  \hline
+ & Gen & F & Pvalor \\
+  \hline
+1 & TFF3 & 5.29 & 0.01 \\
+   \hline
+\end{tabular}
+\end{table}
+
