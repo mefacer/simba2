@@ -4,6 +4,7 @@
 
 script.dirname <- paste0(getwd(), '/')
 
+
 source(paste0(script.dirname,"init.R")) # Script per obrir tots els paquets necesaris
 source(paste0(script.dirname,"ui.R")) # User Interface
 source(paste0(script.dirname,"server.R")) #Server
