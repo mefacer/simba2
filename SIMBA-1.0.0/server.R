@@ -1,6 +1,6 @@
-source(paste0(script.dirname,"server/Analysis/RenderLoadFiles.R"))
-source(paste0(script.dirname,"server/Analysis/GetTukeyPlot.R"))
-source(paste0(script.dirname,"server/Analysis/PCAStats.R"))
+source("server/Analysis/RenderLoadFiles.R")
+source("server/Analysis/GetTukeyPlot.R")
+source("server/Analysis/PCAStats.R")
 
 server <- function(input, output,session) {
   ##### 
@@ -962,7 +962,7 @@ server <- function(input, output,session) {
   ####
   
   # output$markdown <- renderUI({
-  #   HTML(markdown::markdownToHTML(paste0(script.dirname,'Usage.md')))
+  #   HTML(markdown::markdownToHTML('Usage.md'))
   # })
   # 
   # 
@@ -1035,7 +1035,7 @@ server <- function(input, output,session) {
   observeEvent(input$show1, {
     showModal(modalDialog(
       title = "Theory of ANOVA (Catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show1.md"))),
+      withMathJax(includeMarkdown("shows/show1.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1043,7 +1043,7 @@ server <- function(input, output,session) {
   observeEvent(input$show2, {
     showModal(modalDialog(
       title = "Theory of FDR (Catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show2.md"))),
+      withMathJax(includeMarkdown("shows/show2.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1051,7 +1051,7 @@ server <- function(input, output,session) {
   observeEvent(input$show3, {
     showModal(modalDialog(
       title = "Theory of Tukey (Catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show3.md"))),
+      withMathJax(includeMarkdown("shows/show3.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1059,7 +1059,7 @@ server <- function(input, output,session) {
   observeEvent(input$show4, {
     showModal(modalDialog(
       title = "Theory of PCA (Catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show4.md"))),
+      withMathJax(includeMarkdown("shows/show4.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1067,7 +1067,7 @@ server <- function(input, output,session) {
   observeEvent(input$show6, {
     showModal(modalDialog(
       title = "Theory of Heatmap (Catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"shows/show5.md"))),
+      withMathJax(includeMarkdown("shows/show5.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1076,7 +1076,7 @@ server <- function(input, output,session) {
   observeEvent(input$showi2, {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint1.md"))),
+      withMathJax(includeMarkdown("hints/hint1.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1084,7 +1084,7 @@ server <- function(input, output,session) {
   observeEvent(input$showi3, {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint2.md"))),
+      withMathJax(includeMarkdown("hints/hint2.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1092,7 +1092,7 @@ server <- function(input, output,session) {
   observeEvent(input$showi4, {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint3.md"))),
+      withMathJax(includeMarkdown("hints/hint3.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1100,7 +1100,7 @@ server <- function(input, output,session) {
   observeEvent(input$showi5, {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint4.md"))),
+      withMathJax(includeMarkdown("hints/hint4.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1108,7 +1108,7 @@ server <- function(input, output,session) {
   observeEvent(input$showi6, {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown(paste0(script.dirname,"hints/hint5.md"))),
+      withMathJax(includeMarkdown("hints/hint5.md")),
       easyClose = TRUE,
       footer = NULL
     ))
@@ -1119,7 +1119,7 @@ server <- function(input, output,session) {
       paste("Examplefile", ".xlsx", sep = "")
     },
     content = function(file) {
-      file.copy(paste0(script.dirname,"www/data/Resultados_INT_44_2017.xlsx"), file)
+      file.copy("www/data/Resultados_INT_44_2017.xlsx", file)
     }
   )
   

@@ -1,6 +1,6 @@
-source(paste0(script.dirname,"/ui/GetUsageMaterialTabContent.R"))
-source(paste0(script.dirname,"/ui/GetAboutMaterialTabContent.R"))
-source(paste0(script.dirname,"/ui/GetAnalizeMaterialTabContent.R"))
+source("ui/GetUsageMaterialTabContent.R")
+source("ui/GetAboutMaterialTabContent.R")
+source("ui/GetAnalizeMaterialTabContent.R")
 
 
 ui <- fluidPage(theme=shinytheme("flatly"), 
@@ -28,7 +28,7 @@ ui <- fluidPage(theme=shinytheme("flatly"),
                     </div>
                     </div>'),
              hr(),
-             includeMarkdown(paste0(script.dirname,"Usage.md")))
+             includeMarkdown("Usage.md"))
     #tabPanel("About",GetMaterialAboutTabContent())
   ))
   #Hauré de fer una funció apply per definir el entorn de les pagines

@@ -1,9 +1,9 @@
 ### Pagina Usage UI
-source(paste0(script.dirname,"ui/Usage/UIintroduction.R"))
-source(paste0(script.dirname,"ui/Usage/UIloadfile.R"))
-source(paste0(script.dirname,"ui/Usage/UIanalysis.R"))
-source(paste0(script.dirname,"ui/Usage/UIdownloadreport.R"))
-source(paste0(script.dirname,"ui/Usage/UInewsession.R"))
+source("ui/Usage/UIintroduction.R")
+source("ui/Usage/UIloadfile.R")
+source("ui/Usage/UIanalysis.R")
+source("ui/Usage/UIdownloadreport.R")
+source("ui/Usage/UInewsession.R")
 
 GetMaterialUsageTabContent<-function(){ 
   material_tab_content(

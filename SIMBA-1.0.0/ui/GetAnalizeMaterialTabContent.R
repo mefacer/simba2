@@ -1,4 +1,4 @@
-source(paste0(script.dirname,"ui/Analize/GetUIAnalysisLoadFile.R"))
+source("ui/Analize/GetUIAnalysisLoadFile.R")
 
 GetMaterialAnalizeTabContent <- tabPanel("Analize", GetAnalysisAnalizeSidebar,
     #Carreguem el sidebar del load file                 
