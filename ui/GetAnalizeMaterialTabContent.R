@@ -58,7 +58,7 @@ GetMaterialAnalizeTabContent <- tabPanel("Analize", GetAnalysisAnalizeSidebar,
                         actionButton("showi5", "Interpretation Hint",icon=icon("glyphicon glyphicon-question-sign",lib = "glyphicon"),style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
               p(HTML(paste("<b>","HeatMap: Graphic Representation"),"</b>")),
               hr(),
-              withSpinner(plotlyOutput("heatmap",height = "850px"),color="#0b295b"),
+              withSpinner(plotOutput("heatmap",height = "850px"),color="#0b295b"),
               fluidRow(
                 actionButton("show6", "Theory of HeatMap",icon=icon("glyphicon glyphicon-info-sign",lib = "glyphicon")),
                 actionButton("showi6", "Interpretation Hint",icon=icon("glyphicon glyphicon-question-sign",lib = "glyphicon"),style="color: #fff; background-color: #337ab7; border-color: #2e6da4")),

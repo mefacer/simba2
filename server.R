@@ -712,33 +712,73 @@ server <- function(input, output,session) {
   #
   #### 
   
-  output$heatmap <-renderPlotly({
-    if(provador==FALSE) validate(need(input$file1,"Insert File!"))
-    validate(need(input$factors,"Select factors of dataset"))
-    validate(need(input$covariables,"Select covariable of dataset"))
-    newDat <- get_new_data()
-    if(provador==T){
-      newDat <- newData;
-      Covariable<- as.factor(pData(Expression)[,input$covariables])
-      nomscols <- functions[functions$Gens %in% rownames(Expression),"Funcions"]
-      Covariable <- as.data.frame(Covariable)
-    }
-    functions<- get_gene_functions()
-    nomscols <- data.frame("Funcions"=functions[functions$Gens %in% rownames(exprs(data_expression())),"Funcions"])
-    rownames(nomscols) <- unlist(functions[functions$Gens %in% rownames(exprs(data_expression())),"Gens"])
-    Covariable<- as.factor(pData(data_expression())[,input$covariables])
-    Covariable <- as.data.frame(Covariable)
-    colnames(Covariable) <- input$covariables
-    rownames(Covariable) <- colnames(exprs(data_expression()))
-    divergent_viridis_magma <- c(viridis(10, begin = 0.3), rev(magma(10, begin = 0.3)))
-    rwb <- colorRampPalette(colors = c("darkred", "white", "darkgreen"))
-    BrBG <- colorRampPalette(brewer.pal(11, "BrBG"))
-    Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
-    heatmaply(exprs(data_expression()),colors=Spectral,na.value = "grey50",na.rm=F,col_side_colors=Covariable,row_side_colors = nomscols,margins = c(120,120,20,120),seriate = "OLO") %>%
-      colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 1) %>%
-      colorbar(tickfont = list(size = 10), titlefont = list(size = 10), which = 2)
+  output$heatmap <- renderPlot({
     
+    new_data <- get_new_data()
+    new_data %>% 
+      colnames %>% 
+      setdiff(input$factors) ->
+      selected_columns
+    treatment <- new_data %>% select(input$covariables)
+    treatment[, 1] <- as.factor(treatment[, 1])
+    new_data %<>% select(selected_columns) %>% as.data.frame()
+    
+    ## select distances and clustering method
+    ## for rows
+    da.clus<-t(new_data)
+    r.row<-cor(t(da.clus),use="pairwise.complete.obs")
+    d.row <- as.dist(0.5*(1-r.row))
+    distance.row = d.row
+    cluster.row = hclust(distance.row, method = "complete")
+    ## for columns
+    distance.col = dist(t(da.clus), method = "euclidean")
+    cluster.col = hclust(distance.col, method = "ward.D2")
+    
+    gene_functions <- get_gene_functions()
+    colnames(gene_functions)[1] <- 'Genes'
+    rownames(da.clus) %>% 
+      data.frame(Genes=.) %>% 
+      left_join(gene_functions) ->
+      genes_funcions_assign
+    colnames(genes_funcions_assign)[2] <- 'gene_functions'
+    
+    # color.map <- function(x){ if(x=="1") "black" else if(x=="2") "orange" else "red" }  
+    # patientcolors <- unlist(lapply(da0$Treat, color.map))
+    patientcolors <- assign_class_colors(as.character(treatment[, 1]), get_treatment_colors(), 'treatments')
+    # funcColors    <- levels_func[rownames(da.clus),3]
+    funcColors <- assign_class_colors(x=genes_funcions_assign$gene_functions, get_function_colors(), 'gene_functions')
+    uniquecolors  <- unique(funcColors)
+    uniquefunc    <- unique(as.character(get_function_colors()$gene_functions))
+    Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
+    
+    heatmap.2(da.clus, scale="none", trace="none", dendrogram="both", 
+              Rowv=as.dendrogram(cluster.row), Colv=as.dendrogram(cluster.col),
+              col=Spectral,
+              na.color="dimgray",na.rm=FALSE,cexRow=.75,cexCol=.75,
+              ColSideColors=patientcolors, RowSideColors = funcColors, 
+              #hclustfun=function(x) hclust(x, method="ward.D2"),
+              symkey=FALSE, density.info="none")
+    coords <- list(x=-0.13,y=-0.08)  
+    legend(coords,  horiz = T,xpd=T,
+           legend = uniquefunc,
+           col = uniquecolors, 
+           lty= 1,             
+           lwd = 4,           
+           cex= 0.41
+    )
+    coords2 <- list(x=-0.13,y=0.80)  
+    legend(coords2,  horiz = T,xpd=T,
+           #legend = c("T1","T2","T3"),
+           legend=get_treatment_colors()[, 'treatments'], 
+           col = get_treatment_colors()[, 'colors'],
+           text.col=get_treatment_colors()[, 'colors'],
+           lty= 1,             
+           lwd = 4,           
+           cex= 0.41
+    )
+  
   })
+  
   
   ####
   #
@@ -831,7 +871,6 @@ server <- function(input, output,session) {
     # eixos=c(1,3)
     
     new_data <- get_new_data()
-    
     new_data %>% 
       colnames %>% 
       setdiff(input$factors) ->
@@ -839,8 +878,6 @@ server <- function(input, output,session) {
     treatment <- new_data %>% select(input$covariables)
     treatment[, 1] <- as.factor(treatment[, 1])
     new_data %<>% select(selected_columns) 
-    
-    treatment_color <- color_treatment()
     
     ## impute NAs with EM-algorithm to improve default imputation by mean value
     if (sum(is.na(new_data))!=0){
