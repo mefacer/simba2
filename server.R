@@ -190,7 +190,9 @@ server <- function(input, output,session) {
       gene_cols
     
     for( col in gene_cols ){
-      new_data[[col]] <- log10(new_data[[col]])
+      if( input$use_logs ){
+        new_data[[col]] <- log10(new_data[[col]])
+      }
     }
     
     rownames(new_data) <- new_data[,input$id] 
@@ -604,7 +606,7 @@ server <- function(input, output,session) {
   
   output$treatSelector <- renderUI({treat()})
   
-  output$lineplot <- renderPlot({
+  prepare_line <- reactive({
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
@@ -672,21 +674,72 @@ server <- function(input, output,session) {
       nomsfinals <- mitjanes[,1]
       mitjanes <- mitjanes[,-c(1:3)]
     }
+    
+    return(list(mitjanes=mitjanes, colorins=colorins, nomsfinals=nomsfinals,
+                minim=minim, maxim=maxim, nw=nw, newDat=newDat))
+  })
+  
+  downloadHandler(
+    filename = "Lineplot.jpeg",
+    contentType = "image/jpeg",
+    content = function(file) {
+      jpeg(file)
+      data_line <- prepare_line()
+      par(mar=c(14, 3, 1, 1))
+      for(i in 1:get_treatments_number()){
+        if(i == 1){
+          plot(data_line$mitjanes[,i],
+               col=data_line$colorins[i],
+               ylim=c(min(as.numeric(na.omit(unlist(data_line$minim))))-0.1,
+                      max(as.numeric(na.omit(unlist(data_line$maxim))))+0.1),
+               type="o",
+               pch=19,
+               xaxt='n',
+               xlab=NA,
+               ylab=NA)
+          axis(1, at=1:(ncol(data_line$nw)-1), labels=data_line$nomsfinals,las=2, cex.axis=0.8)
+        }else{
+          lines(data_line$mitjanes[,i],col=data_line$colorins[i],type="o",pch=19)
+        }
+      }
+      
+      # a<- significatius()
+      # g <- which( a[,3] <= input$alpha)
+      # validate(need(g,"No hi ha cap valor significatiu"))
+      significatius() %>% 
+        filter(p.value < input$alpha) %>% 
+        select(Genes) %>% 
+        .[, 1] ->
+        sign_genes
+      
+      ind_sign <- which(sapply(data_line$nomsfinals, function(nom) nom %in% sign_genes))
+      if( length(ind_sign)>0 ){
+        abline(v=ind_sign,col="black",lty="dotted")
+      }
+      legend("topright",paste0("T",1:length(levels(as.factor(data_line$newDat[,input$covariables])))), cex=0.8, col=data_line$colorins,lty=1, title=input$covariables)
+      
+      dev.off()
+    }
+  )
+  
+  output$lineplot <- renderPlot({
+    
+    data_line <- prepare_line()
     par(mar=c(14, 3, 1, 1))
     for(i in 1:get_treatments_number()){
       if(i == 1){
-        plot(mitjanes[,i],
-             col=colorins[i],
-             ylim=c(min(as.numeric(na.omit(unlist(minim))))-0.1,
-                    max(as.numeric(na.omit(unlist(maxim))))+0.1),
+        plot(data_line$mitjanes[,i],
+             col=data_line$colorins[i],
+             ylim=c(min(as.numeric(na.omit(unlist(data_line$minim))))-0.1,
+                    max(as.numeric(na.omit(unlist(data_line$maxim))))+0.1),
              type="o",
              pch=19,
              xaxt='n',
              xlab=NA,
              ylab=NA)
-        axis(1, at=1:(ncol(nw)-1), labels=nomsfinals,las=2, cex.axis=0.8)
+        axis(1, at=1:(ncol(data_line$nw)-1), labels=data_line$nomsfinals,las=2, cex.axis=0.8)
       }else{
-        lines(mitjanes[,i],col=colorins[i],type="o",pch=19)
+        lines(data_line$mitjanes[,i],col=data_line$colorins[i],type="o",pch=19)
       }
     }
     
@@ -699,11 +752,11 @@ server <- function(input, output,session) {
       .[, 1] ->
       sign_genes
     
-    ind_sign <- which(sapply(nomsfinals, function(nom) nom %in% sign_genes))
+    ind_sign <- which(sapply(data_line$nomsfinals, function(nom) nom %in% sign_genes))
     if( length(ind_sign)>0 ){
       abline(v=ind_sign,col="black",lty="dotted")
     }
-    legend("topright",paste0("T",1:length(levels(as.factor(newDat[,input$covariables])))), cex=0.8, col=colorins,lty=1, title=input$covariables)
+    legend("topright",paste0("T",1:length(levels(as.factor(data_line$newDat[,input$covariables])))), cex=0.8, col=data_line$colorins,lty=1, title=input$covariables)
     
   })
   # ####
@@ -712,8 +765,27 @@ server <- function(input, output,session) {
   #
   #### 
   
-  output$heatmap <- renderPlot({
-    
+
+  
+  output$downloadHeatmap <- downloadHandler(
+    filename = "Heatmap.jpeg",
+    contentType = "image/jpeg",
+    content = function(file) {
+      jpeg(file)
+      data_heatmap <- prepare_heatmap()
+      heatmap.2(data_heatmap$da.clus, scale="none", trace="none", dendrogram="both", 
+                Rowv=as.dendrogram(data_heatmap$cluster.row), 
+                Colv=as.dendrogram(data_heatmap$cluster.col),
+                col=data_heatmap$Spectral,
+                na.color="dimgray",na.rm=FALSE,cexRow=.75,cexCol=.75,
+                ColSideColors=data_heatmap$patientcolors, RowSideColors = data_heatmap$funcColors, 
+                #hclustfun=function(x) hclust(x, method="ward.D2"),
+                symkey=FALSE, density.info="none")
+      dev.off()
+    }
+  )
+  
+  prepare_heatmap <- reactive({
     new_data <- get_new_data()
     new_data %>% 
       colnames %>% 
@@ -751,32 +823,54 @@ server <- function(input, output,session) {
     uniquefunc    <- unique(as.character(get_function_colors()$gene_functions))
     Spectral <- colorRampPalette(rev(brewer.pal(40, "Spectral")))
     
-    heatmap.2(da.clus, scale="none", trace="none", dendrogram="both", 
-              Rowv=as.dendrogram(cluster.row), Colv=as.dendrogram(cluster.col),
-              col=Spectral,
+    return(list(Spectral=Spectral, da.clus=da.clus, cluster.row=cluster.row,
+                cluster.col=cluster.col, patientcolors=patientcolors, funcColors=funcColors))
+  })
+  
+  plot_heatmap <- reactive({
+    
+    data_heatmap <- prepare_heatmap()
+    if (!input$use_logs){
+      data_heatmap$da.clus <- log10(data_heatmap$da.clus)
+    }
+    heatmap.2(data_heatmap$da.clus, scale="none", trace="none", dendrogram="both", 
+              Rowv=as.dendrogram(data_heatmap$cluster.row), 
+              Colv=as.dendrogram(data_heatmap$cluster.col),
+              col=data_heatmap$Spectral,
               na.color="dimgray",na.rm=FALSE,cexRow=.75,cexCol=.75,
-              ColSideColors=patientcolors, RowSideColors = funcColors, 
+              ColSideColors=data_heatmap$patientcolors, 
+              RowSideColors = data_heatmap$funcColors, 
               #hclustfun=function(x) hclust(x, method="ward.D2"),
               symkey=FALSE, density.info="none")
-    coords <- list(x=-0.13,y=-0.08)  
-    legend(coords,  horiz = T,xpd=T,
-           legend = uniquefunc,
-           col = uniquecolors, 
-           lty= 1,             
-           lwd = 4,           
-           cex= 0.41
-    )
-    coords2 <- list(x=-0.13,y=0.80)  
-    legend(coords2,  horiz = T,xpd=T,
-           #legend = c("T1","T2","T3"),
-           legend=get_treatment_colors()[, 'treatments'], 
-           col = get_treatment_colors()[, 'colors'],
-           text.col=get_treatment_colors()[, 'colors'],
-           lty= 1,             
-           lwd = 4,           
-           cex= 0.41
-    )
+    # legend('topright', horiz = T,xpd=T,
+    #        legend=c(uniquefunc, get_treatment_colors()[, 'treatments']),
+    #        col = c(uniquecolors, get_treatment_colors()[, 'colors']),
+    #        lty= 1,             
+    #        lwd = 4,           
+    #        cex= 1)
+    
+    # coords <- list(x=-0.13,y=-0.08)  
+    # legend(coords,  horiz = T,xpd=T,
+    #        legend = uniquefunc,
+    #        col = uniquecolors, 
+    #        lty= 1,             
+    #        lwd = 4,           
+    #        cex= 0.41
+    # )
+    # coords2 <- list(x=-0.13,y=0.80)  
+    # legend("topleft",  horiz = T,xpd=T,
+    #        #legend = c("T1","T2","T3"),
+    #        legend=get_treatment_colors()[, 'treatments'], 
+    #        col = get_treatment_colors()[, 'colors'],
+    #        text.col=get_treatment_colors()[, 'colors'],
+    #        lty= 1,             
+    #        lwd = 4,           
+    #        cex= 0.41
+    # )
+  })
   
+  output$heatmap <- renderPlot({
+    plot_heatmap()
   })
   
   
@@ -786,7 +880,7 @@ server <- function(input, output,session) {
   #
   #### 
   
-  plot_pca <- reactive({
+  prepare_pca <- reactive({
     mitjanes <- calc_treatment_means()
     
     # saveRDS(mitjanes, 'mitjanes.RDS')
@@ -806,12 +900,39 @@ server <- function(input, output,session) {
     
     
     pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
+    return(list(
+      pcajetr=pcajetr, colorize_functions=colorize_functions, colors=colors
+    ))
+  })
+  
+  plot_pca <- reactive({
+    # mitjanes <- calc_treatment_means()
+    # 
+    # # saveRDS(mitjanes, 'mitjanes.RDS')
+    # # saveRDS(colors, 'colors.RDS')
+    # # saveRDS(colorize_functions, 'color_funs.RDS')
+    # # 
+    # gene_functions <- get_gene_functions()
+    # colnames(gene_functions)[1] <- 'Genes'
+    # mitjanes %>% 
+    #   select(Genes) %>% 
+    #   left_join(gene_functions) ->
+    #   mitjanes_funcions
+    # colnames(mitjanes_funcions)[2] <- 'gene_functions'
+    # 
+    # colors = get_function_colors()
+    # colorize_functions <- assign_class_colors(x = mitjanes_funcions$gene_functions, colors, 'gene_functions')
+    # 
+    # 
+    # pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
+    
+    data_pca <- prepare_pca()
     par(mfrow = c(1,2),
         oma = c(0,0,0,0) + 0.5,
         mar = c(4,4,4,4) + 0.5)
-    plot(pcajetr,choix="var",col.var="blue",cex.main=0.7)
-    plot.PCA(pcajetr,choix="ind",col.ind=colorize_functions, invisible="quali",label="none")
-    legend("topright",colors$gene_functions, cex=0.6, col=colors$colors,lty=1,bg="white")
+    plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7)
+    plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
+    legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
     
     
   })
@@ -824,9 +945,15 @@ server <- function(input, output,session) {
     filename = "PCA.png",
     contentType = "image/png",
     content = function(file) {
-      # png(file=file)
-      # plot_pca()
-      # dev.off()
+      png(file=file)
+      data_pca <- prepare_pca()
+      par(mfrow = c(1,2),
+          oma = c(0,0,0,0) + 0.5,
+          mar = c(4,4,4,4) + 0.5)
+      plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7)
+      plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
+      legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
+      dev.off()
     }
   )
   
@@ -854,21 +981,68 @@ server <- function(input, output,session) {
     funcpca()
   })
   
-  funcpca<-reactive({
-    eixos=c(1,2)
-    # coltract=c("black","orange","red")
-    gruix=1.7
-    gris=4
-    limcos2=0.5
-    cextit=.7
-    cexleg=.6
-    cexlab=.6
-    cexax=.6
-    cexlletra=.7
+  output$downloadPCA2 <- downloadHandler(
+    filename = "PCA.png",
+    contentType = "image/png",
+    content = function(file) {
+      png(file=file)
+      eixos=c(1,2)
+      # coltract=c("black","orange","red")
+      gruix=1.7
+      gris=4
+      limcos2=0.5
+      cextit=.7
+      cexleg=.6
+      cexlab=.6
+      cexax=.6
+      cexlletra=.7
+      
+      par(mfrow = c(1,2),
+          oma = c(0,0,0,0) + 0.5,
+          mar = c(4,4,4,4) + 0.5)
+      
+      data_pca2 <- prepare_pca2()
+      plot(data_pca2$pcaout,
+           choix="ind",
+           axes=eixos,
+           invisible="quali",
+           # habillage=1,
+           # col.hab=get_treatment_colors()[, 'colors'],
+           col.ind=data_pca2$colorize_treatments,
+           lwd=gruix,
+           cex.main=cextit,
+           cex=cexlletra,
+           cex.lab=cexlab,
+           cex.axis=cexax)
+      
+      legend(
+        x="topleft", 
+        legend=get_treatment_colors()[, 'treatments'], 
+        cex=cexleg, 
+        col=get_treatment_colors()[, 'colors'],
+        text.col=get_treatment_colors()[, 'colors'],
+        lty=1,
+        title=input$covariables,
+        bg="white")
+      
+      # saveRDS(pcaux, 'pca.RDS')
+      # saveRDS(colors, 'colors.RDS')
+      # saveRDS(colorize_functions, 'color_funs.RDS')
+      
+      plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
+           lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
+      legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
+      dev.off()
+    }
+  )
+  
+  prepare_pca2 <- reactive({
     # nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,
     # data=datJejunal[,-c(1:3)]
     # gsignif=tab1  
-    # eixos=c(1,3)
+    eixos=c(1,2)
+    gris=4
+    limcos2=0.5
     
     new_data <- get_new_data()
     new_data %>% 
@@ -888,38 +1062,9 @@ server <- function(input, output,session) {
     
     pcaout<-PCA(new_data,quali.sup=1,graph=F)
     
-    par(mfrow = c(1,2),
-        oma = c(0,0,0,0) + 0.5,
-        mar = c(4,4,4,4) + 0.5)
-    
-
-
     ## individuals graph
     colorize_treatments <- assign_class_colors(as.character(treatment[, 1]), get_treatment_colors(), 'treatments')
     
-    plot(pcaout,
-         choix="ind",
-         axes=eixos,
-         invisible="quali",
-         # habillage=1,
-         # col.hab=get_treatment_colors()[, 'colors'],
-         col.ind=colorize_treatments,
-         lwd=gruix,
-         cex.main=cextit,
-         cex=cexlletra,
-         cex.lab=cexlab,
-         cex.axis=cexax)
-    
-    legend(
-      x="topleft", 
-      legend=get_treatment_colors()[, 'treatments'], 
-      cex=cexleg, 
-      col=get_treatment_colors()[, 'colors'],
-      text.col=get_treatment_colors()[, 'colors'],
-      lty=1,
-      title=input$covariables,
-      bg="white")
-
     ## variables graph
     ## only genes with a quality over threshold in limcos2
     ###  and being significant, that is, belong to the table gsignif
@@ -965,17 +1110,66 @@ server <- function(input, output,session) {
       rows_funcions
     colnames(rows_funcions)[2] <- 'gene_functions'
     
-    colors = get_function_colors()
-    colorize_functions <- assign_class_colors(x = rows_funcions$gene_functions, colors, 'gene_functions')
+    colors_2 = get_function_colors()
+    colorize_functions_2 <- assign_class_colors(x = rows_funcions$gene_functions, colors_2, 'gene_functions')
     
+    return(list(
+      pcaout=pcaout, 
+      colorize_treatments=colorize_treatments,
+      pcaux=pcaux,
+      colorize_functions_2=colorize_functions_2,
+      colors_2=colors_2
+    ))
+  })
+  
+  
+  funcpca<-reactive({
+    eixos=c(1,2)
+    # coltract=c("black","orange","red")
+    gruix=1.7
+    gris=4
+    limcos2=0.5
+    cextit=.7
+    cexleg=.6
+    cexlab=.6
+    cexax=.6
+    cexlletra=.7
     
+    par(mfrow = c(1,2),
+        oma = c(0,0,0,0) + 0.5,
+        mar = c(4,4,4,4) + 0.5)
+   
+    data_pca2 <- prepare_pca2()
+    plot(data_pca2$pcaout,
+         choix="ind",
+         axes=eixos,
+         invisible="quali",
+         # habillage=1,
+         # col.hab=get_treatment_colors()[, 'colors'],
+         col.ind=data_pca2$colorize_treatments,
+         lwd=gruix,
+         cex.main=cextit,
+         cex=cexlletra,
+         cex.lab=cexlab,
+         cex.axis=cexax)
+    
+    legend(
+      x="topleft", 
+      legend=get_treatment_colors()[, 'treatments'], 
+      cex=cexleg, 
+      col=get_treatment_colors()[, 'colors'],
+      text.col=get_treatment_colors()[, 'colors'],
+      lty=1,
+      title=input$covariables,
+      bg="white")
+
     # saveRDS(pcaux, 'pca.RDS')
     # saveRDS(colors, 'colors.RDS')
     # saveRDS(colorize_functions, 'color_funs.RDS')
     
-    plot(pcaux, axes=eixos, choix="var", col.var=colorize_functions,
+    plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
          lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
-    legend("topleft",colors$gene_functions, cex=0.6, col=colors$colors,lty=1,bg="white")
+    legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
     
     # gray color is the baseline color for variables, overprinted with functions colors afterwards
     # colorbase<-gray.colors(1,0.3+gris*0.05,0.3+gris*0.1)
