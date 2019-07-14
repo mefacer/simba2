@@ -17,6 +17,8 @@ git clone https://github.com/djangosee/TFGShinyApp.git
 2. Ejecutar el proyecto `simba2.Rproj`
 3. Ejecutar todas las lineas de código que encontramos en App.r; La aplicación se abrirá automáticamente.
 
+Si hay problema con los paquetes, se puede utilizar la funcion install_all_packages() commentada en el archivo App.R
+
 ## GIF **ExampleFile.xlsx**
 
 <img src="GifReactionj.gif" />

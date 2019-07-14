@@ -508,6 +508,15 @@ server <- function(input, output,session) {
       table_res
     
     table_res %>% 
+      group_by(Genes) %>% 
+      summarise(groups_n = length(unique(groups))) %>% 
+      filter(groups_n == 1) %>% 
+      pull(Genes) ->
+      one_group_genes
+    
+    table_res %>% 
+      as.data.table() %>% 
+      .[ Genes %chin% one_group_genes, groups := ''] %>% 
       mutate(value_int=paste(round(value, digits=digits), "<sup>", groups, "</sup>", sep="")) %>% 
       mutate(value=ifelse(groups=='', round(value, digits=digits), value_int)) %>% 
       mutate(value_int=NULL) %>% 
@@ -941,16 +950,23 @@ server <- function(input, output,session) {
     plot_pca()
   })
   
-  output$downloadPCA <- downloadHandler(
-    filename = "PCA.png",
+  output$downloadPCA_a <- downloadHandler(
+    filename = "PCA_a.png",
     contentType = "image/png",
     content = function(file) {
       png(file=file)
       data_pca <- prepare_pca()
-      par(mfrow = c(1,2),
-          oma = c(0,0,0,0) + 0.5,
-          mar = c(4,4,4,4) + 0.5)
       plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7)
+      dev.off()
+    }
+  )
+  
+  output$downloadPCA_b <- downloadHandler(
+    filename = "PCA_b.png",
+    contentType = "image/png",
+    content = function(file) {
+      png(file=file)
+      data_pca <- prepare_pca()
       plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
       legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
       dev.off()
@@ -981,8 +997,8 @@ server <- function(input, output,session) {
     funcpca()
   })
   
-  output$downloadPCA2 <- downloadHandler(
-    filename = "PCA.png",
+  output$downloadPCA2_a <- downloadHandler(
+    filename = "PCA2_a.png",
     contentType = "image/png",
     content = function(file) {
       png(file=file)
@@ -996,10 +1012,6 @@ server <- function(input, output,session) {
       cexlab=.6
       cexax=.6
       cexlletra=.7
-      
-      par(mfrow = c(1,2),
-          oma = c(0,0,0,0) + 0.5,
-          mar = c(4,4,4,4) + 0.5)
       
       data_pca2 <- prepare_pca2()
       plot(data_pca2$pcaout,
@@ -1025,16 +1037,34 @@ server <- function(input, output,session) {
         title=input$covariables,
         bg="white")
       
-      # saveRDS(pcaux, 'pca.RDS')
-      # saveRDS(colors, 'colors.RDS')
-      # saveRDS(colorize_functions, 'color_funs.RDS')
+      dev.off()
+    }
+  )
+  
+  output$downloadPCA2_b <- downloadHandler(
+    filename = "PCA2_b.png",
+    contentType = "image/png",
+    content = function(file) {
+      png(file=file)
+      eixos=c(1,2)
+      # coltract=c("black","orange","red")
+      gruix=1.7
+      gris=4
+      limcos2=0.5
+      cextit=.7
+      cexleg=.6
+      cexlab=.6
+      cexax=.6
+      cexlletra=.7
       
+      data_pca2 <- prepare_pca2()
       plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
            lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
       legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
       dev.off()
     }
   )
+  
   
   prepare_pca2 <- reactive({
     # nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,

@@ -9,9 +9,10 @@ list.of.packages <- c("plotly","codetools","writexl","openxlsx",
                       "genefilter","shinythemes","DT","tools","readxl",
                       "shiny","shinymaterial","stringi", "data.table", 
                       "agricolae", 'magrittr', 'tidyr', 'dplyr', 'missMDA', 
-                      'RColorBrewer', 'glue', 'httpuv')
+                      'RColorBrewer', 'glue', 'httpuv', 'markdown')
+
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages())]
-if(length(new.packages)){
+if(length(new.packages) > 0){
   install.packages(new.packages)
 }
 
@@ -21,3 +22,11 @@ if(!"genefilter" %in% installed.packages()){
 }
 
 lapply(list.of.packages, require, character.only = TRUE, quietly = T)
+
+install_all_packages <- function(){
+  for(package in list.of.packages){
+    install.packages(package)
+  }
+  source("https://bioconductor.org/biocLite.R")
+  biocLite("genefilter")
+}
