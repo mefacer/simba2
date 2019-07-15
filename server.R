@@ -688,7 +688,7 @@ server <- function(input, output,session) {
                 minim=minim, maxim=maxim, nw=nw, newDat=newDat))
   })
   
-  downloadHandler(
+  output$downloadLine <- downloadHandler(
     filename = "Lineplot.jpeg",
     contentType = "image/jpeg",
     content = function(file) {
