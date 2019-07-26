@@ -2,7 +2,8 @@ source("ui/Analize/GetUIAnalysisLoadFile.R")
 
 GetMaterialAnalizeTabContent <- tabPanel("Analize", GetAnalysisAnalizeSidebar,
     #Carreguem el sidebar del load file                 
-    conditionalPanel("input.Start>0",mainPanel("",
+    # conditionalPanel("input.Start>0",mainPanel("",
+    conditionalPanel("output.show_panel",mainPanel("",
               p(HTML(paste("<b>","Gene Expression Matrix (gene x samples: first 6 rows and 6 columns):","</b>"))),
               checkboxInput("checkbox", label = "View all Data", value = F),
               withSpinner(tableOutput("tableHead"),color="#0b295b"),
