@@ -1,34 +1,20 @@
-## Métode de Tukey (*honestly-significant-difference*)
+## Métode de Tukey (*honestly-significant-difference* HSD)
 
-Recordem que quan el nombre de possibles comparacions és elevat, per a un nivell de significació $\alpha$ donat, pot conduir a una inflació de l'error de tipus I, com també hem vist quan parlàvem de multiplicitat de contrastos.
+Fixat un nivell de significació $\alpha$, quan el nombre de possibles comparacions és elevat podem tenir un error de tipus I més elevat que $\alpha$, com també hem vist quan parlàvem de contrasts en multiplicitat de gens.
 
-Per identificar quins tractaments són significativament diferents entre ells i corregir el problema de la inflació de l'error de tipus I, hem utilitzat el mètode de Tukey i les seves hipòtesis són:
+Per identificar quins tractaments són significativament diferents entre ells en mitjana i corregir el problema de la inflació de l'error de tipus I, proposem el mètode de Tukey. Les seves hipòtesis són:
+$$H_{0}: \mu_j = \mu_k \text{ per a totes les parelles de mitjanes}$$
 
+$$H_{1}: \mu_j \neq \mu_k \text{ en almenys una parella de mitjanes}$$
 
-$$H_{0}: \mu_i = \mu_j \text{ per a cada parella de mitjanes }  i \neq j$$
+L'estadístic de contrast del test de Tukey és:
+$$Q = \frac{\bar{X}_j - \bar{X}_k}{\sqrt{\frac{MSE}{r^*}}}$$
+on $\hat{X}_j$ i $\hat{X}_k$ són les mitjanes dels tractaments $j$ i $k$, respectivament, $MSE$ és l'estimació de la variància del error o residual del model ANOVA ajustat; i $r^*=r$ és el nombre de rèpliques per tractament, pel cas balancejat. Sota la hipòtesi nul·la i les assumpcions del model, aquest estadístic segueix l'anomenada llei del *rang estudentitzat* amb paràmetres $I$ i $N-I$, on  $I$ és el nombre de nivells que té el factor i $N$ és la grandària mostral. Pel cas no balancejat, el test s'anomena de *Tukey-Kramer*, el qual proposa utilitzar $r^*=r_H$ la mitjana harmònica del nombre de rèpliques dels dos tractaments. Alternativament, en alguns texts es recomana la mitjana harmònica de les rèpliques del conjunt de tractaments per tenir un mateix marge d'error per a totes les diferències, és a dir,
+$$r^* = \frac{2}{\frac{1}{r_j}+\frac{1}{r_k}}\quad \text{o bé}\quad r^* =r_H= \frac{I}{\sum_{j=1}^I\frac{1}{r_j}}$$
+Fer el test de Tukey-Kramer, fixant un nivell de significació $\alpha$, equival a considerar significatives aquelles diferències anomenades *honestament significatives*, que són les que superen el llindar $HSD$
+$$|\bar{X}_j - \bar{X}_k | > HSD = q_{\alpha,I,N-I}\sqrt{\frac{MSE}{r^*}}$$
+on $q_{\alpha,I,N-I}$ és la quantila teòrica de la distribució del rang estudentitzat que deixa una cua dreta d'àrea $\alpha$. 
 
-$$H_{1}: \mu_i \neq \mu_j \text{ almenys una parella de mitjanes }  i \neq j$$
-
-L'estadístic de contrast que utilitza el test de Tukey queda definit com:
-
-$$Q_{I,n-I} = q_{I,n-I}(\alpha)\sqrt{\frac{MSE}{n}}$$
-
-on $q_{I,n-I}$ és la quantila teòrica,
-
-$$q_{I,n-I}(\alpha) = \frac{\bar{X}_j - \bar{X}_k}{\sqrt{\frac{\hat{S}^2}{n}}}$$
-
-$\hat{X}_j$ i $\hat{X}_k$ són la mitjana del grup $j$ i $k$, respectivament, i $\hat{X}_j > \hat{X}_k$. $\hat{S}^2$ és l'estimació de la variància del error o residual; i $n$ és la grandària mostral per a tots els grups; on $I$ i $n-I$ són els graus de llibertat de la distribució del rang estudentitzat ($I$ correspon al nombre de nivells que té el factor, $n$ correspon a la grandària mostral).En el cas de tenir grandàries mostrals diferents entre els nivells del factor, hem d'utilitzar un altre $n$ (mitjana harmònica):
-
-$$n_h = \frac{t}{\sum_{i=1}^{t}\frac{1}{n_i}}$$
-
-La diferència entre mitjanes serà significativa amb un nivell de significació $\alpha$ si
-
-$$|\bar{X}_j - \bar{X}_k | > HSD $$
-
-on $HSD=Q_{I,n-I}$.
-
-L'interval de confiança per a la diferència de mitjanes el definim com:
-
-$$IC(\mu_j - \mu_k)_{(1-\alpha)}= (\bar{X}_j - \bar{X}_k) \pm q_{I,n-I,1-\alpha}\sqrt{\frac{MSE}{n}}$$
-
-Si l'interval de la diferència inclou el 0, no rebutjem la hipòtesi nul·la del test i per tant, no hi ha diferències entre $\mu_j$ i $\mu_k$.
+L'interval de confiança per a la diferència de mitjanes és:
+$$IC(\mu_j - \mu_k)= (\bar{X}_j - \bar{X}_k) \pm HSD$$
+Una manera alternativa de decidir el test és en base a mirar si el zero està contingut o no en l'interval de confiança. Si no està en l'interval de confiança, s'accepta la hipòtesi de mitjanes significativament diferents per aquests grups. 

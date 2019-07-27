@@ -21,7 +21,6 @@ server <- function(input, output,session) {
     input$id <- "Sample ID"
   }
   
-  show_panel <- FALSE
   react_vals <- reactiveValues()
   react_vals$show_panel <- FALSE
   
@@ -302,19 +301,35 @@ server <- function(input, output,session) {
     p.value<-apply(new_data_gene,2, function(x){
       summary(aov(x~treatment))[[1]]['Pr(>F)'][1,1]
     })
-    sem_error<-apply(new_data_gene, 2, function(x){ 
+    mse_error<-apply(new_data_gene, 2, function(x){ 
       summary(aov(x~treatment))[[1]]['Mean Sq'][2,1]
     })
-    sample_size <- apply(new_data_gene, 2, function(x){ 
+    harmonic_sample_size <- apply(new_data_gene, 2, function(x){ 
       cbind(treatment, x) %>% 
         na.omit %>% 
         .[, 'treatment'] %>% 
-        table %>% 
-        max
+        table -> appearances
+      1/mean(1/appearances)
     })
-    sem <- sqrt(sem_error/sample_size)
+    valid_samples <- apply(new_data_gene, 2, function(x){ 
+      cbind(treatment, x) %>% 
+        na.omit %>% 
+        nrow
+    })
     
-    data.frame(Genes=colnames(new_data_gene), statistic, p.value, sem, stringsAsFactors = FALSE) %>% 
+    treatments_n <- uniqueN(treatment)
+    sem <- sqrt(mse_error/harmonic_sample_size)
+    q_val <- qtukey(1-p.value, treatments_n, valid_samples - treatments_n)
+    hsd <- q_val*sem
+    
+    data.frame(
+        Genes=colnames(new_data_gene), 
+        statistic, 
+        p.value, 
+        harmonic_sample_size=harmonic_sample_size,
+        mse=mse_error, 
+        hsd,
+        stringsAsFactors = FALSE) %>% 
       mutate(p.BH=p.adjust(p.value, "BH" )) %>% 
       combine_genes_with_funcions ->
       result_data
@@ -340,7 +355,7 @@ server <- function(input, output,session) {
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
     
-    pvaluesTable <- significatius() %>% select(-sem)
+    pvaluesTable <- significatius() %>% select(Genes, statistic, p.value, p.BH)
     colnames(pvaluesTable) <- c("Genes", "Contrast Statistic", "P-value", "P-value(FDR)")
     
     pvaluesTable <- datatable(pvaluesTable) %>%
@@ -361,7 +376,7 @@ server <- function(input, output,session) {
       paste("table_multiple_comparisons_analysis.csv", sep = "")
     },
     content = function(file) {
-      dataMCA <- significatius()
+      dataMCA <- significatius() %>% select(Genes, statistic, p.value, p.BH)
       dataMCA$p.value <- format(dataMCA$p.value,4)
       dataMCA$p.BH <- format(dataMCA$p.BH,4)
       colnames(dataMCA) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
@@ -423,9 +438,27 @@ server <- function(input, output,session) {
     
   })
   
+  calculate_table_Tukey_corrected <- reactive({
+    treats_pvalues <- calculate_table_Tukey()
+    for(col in 1:ncol(treats_pvalues)){
+      col_name = colnames(treats_pvalues)[col]
+      if( col_name != 'Genes' ){
+        treats <- strsplit(col_name, '-')[[1]]
+        
+        if(!is.null(input[[paste0('treat_name_', treats[1])]])){
+          treats[1] <- input[[paste0('treat_name_', treats[1])]]
+        }
+        if(!is.null(input[[paste0('treat_name_', treats[2])]])){
+          treats[2] <- input[[paste0('treat_name_', treats[2])]]
+        }
+        colnames(treats_pvalues)[col] <- paste(treats, collapse='-')
+      }
+    }
+    treats_pvalues
+  })
   
   output$tableTukey <- DT::renderDataTable({
-    treats_pvalues <- calculate_table_Tukey()
+    treats_pvalues <- calculate_table_Tukey_corrected()
     datatable(treats_pvalues) %>%
       formatRound(columns=colnames(treats_pvalues), digits=4)
   })
@@ -435,7 +468,7 @@ server <- function(input, output,session) {
       paste("table_tukey.csv", sep = "")
     },
     content = function(file) {
-      treats_pvalues <- calculate_table_Tukey()
+      treats_pvalues <- calculate_table_Tukey() %>% correct_cross_treatment_names
       write.csv(treats_pvalues, file, row.names = FALSE, quote = FALSE)
     }
   )
@@ -487,13 +520,34 @@ server <- function(input, output,session) {
     treatment_means
   })
   
-  output$tableTreatments <- DT::renderDataTable({
+  calc_treatment_means_name_corrected <- reactive({
     treatment_means <- calc_treatment_means()
+    for(col in 1:ncol(treatment_means)){
+      col_name = colnames(treatment_means)[col]
+      if( col_name != 'Genes' ){
+        
+        if(!is.null(input[[paste0('treat_name_', col_name)]])){
+          col_name <- input[[paste0('treat_name_', col_name)]]
+        }
+        colnames(treatment_means)[col] <- col_name
+      }
+    }
+    treatment_means
+  })
+  
+  output$tableTreatments <- DT::renderDataTable({
+    treatment_means <- calc_treatment_means_name_corrected()
     tukey_letters <- Tukey_letters()
     
     significatius() %>% 
-      select(Genes, p.value, sem) %>% 
-      mutate(sem = round(sem, digits=4)) %>% 
+      select(Genes, 
+             p.value, 
+             harmonic_sample_size,
+             mse, 
+             hsd) %>% 
+      mutate(mse = round(mse, digits=4)) %>% 
+      mutate(harmonic_sample_size = round(harmonic_sample_size, digits=2)) %>% 
+      mutate(hsd = round(hsd, digits=4)) %>% 
       mutate(p.value = round(p.value, digits=4)) ->
       genes_sign
     
@@ -514,11 +568,24 @@ server <- function(input, output,session) {
       paste("table_tukey.csv", sep = "")
     },
     content = function(file) {
-      treatment_means <- calc_treatment_means()
+      treatment_means <- calc_treatment_means_name_corrected()
       tukey_letters <- Tukey_letters()
+      
+      significatius() %>% 
+        select(Genes, 
+               p.value, 
+               harmonic_sample_size,
+               mse, 
+               hsd) %>% 
+        mutate(mse = round(mse, digits=4)) %>% 
+        mutate(harmonic_sample_size = round(harmonic_sample_size, digits=2)) %>% 
+        mutate(hsd = round(hsd, digits=4)) %>% 
+        mutate(p.value = round(p.value, digits=4)) ->
+        genes_sign
 
-      format_tukey_letters(tukey_letters, treatment_means) %>%
+      format_tukey_letters(tukey_letters, treatment_means) %>% 
         combine_genes_with_funcions %>% 
+        left_join(genes_sign) %>% 
         sapply(remove_subs) %>% 
         write.csv(file, row.names = FALSE, quote = FALSE)
     }
@@ -600,6 +667,47 @@ server <- function(input, output,session) {
     get_new_data()[, input$covariables] %>% uniqueN()
   })
   
+  get_treatment_values <- eventReactive(input$Start,{
+    get_new_data()[, input$covariables] %>% unique()
+  })
+  
+  set_treat_names <- eventReactive(input$Start,{
+    colins <- get_default_colors()
+    
+    lapply(get_treatment_values(), function(treatment) {
+      div(style="display: inline-block;vertical-align:top; width: 150px;",
+          textInput(paste0('treat_name_', treatment), treatment, value=treatment))
+    })
+  })
+  output$treatment_names <- renderUI({set_treat_names()})
+  
+  output$treatment_legend <- renderPlot({
+    par(mfrow=c(1,2), mar = c(1,1,1,1))
+    
+    plot(NULL,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+    legend(
+      x="topleft", 
+      legend=get_treatment_colors()[, 'treatment_names'], 
+      col=get_treatment_colors()[, 'colors'],
+      text.col=get_treatment_colors()[, 'colors'],
+      title='Treatments',
+      title.col='black',
+      bg="white",
+      pch=16, pt.cex=3, cex=1.5, bty='n')
+    
+    data_pca <- prepare_pca()
+    plot(NULL,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+    legend(
+      "topleft",
+      title.col='black',
+      data_pca$colors$gene_functions, 
+      col=data_pca$colors$colors,
+      bg="white",
+      title='Functions',
+      pch=16, pt.cex=3, cex=1.5, bty='n')
+  })
+  
+  
   cols <- eventReactive(input$Start,{
     colins <- get_default_colors()
     
@@ -610,8 +718,8 @@ server <- function(input, output,session) {
   output$colorSelector <- renderUI({cols()})
   
   treat <- eventReactive(input$Start,{
-    dat<- read_data()
-    selectizeInput("treatcat","Select treat category:",choices = dat[[input$covariables]],selected=T, multiple = FALSE)
+    treatment_values <- get_treatment_values()
+    selectizeInput("treatcat","Select treat category:",choices = treatment_values,  selected=treatment_values[1], multiple = FALSE)
   })
   
   get_default_colors <- function(){
@@ -626,7 +734,7 @@ server <- function(input, output,session) {
     return( data.frame(gene_functions, colors, stringsAsFactors = FALSE) )
   })
   
-  get_treatment_colors <- eventReactive(input$Start,{
+  get_treatment_colors <- reactive({
     treatments <- as.character(get_new_data()[, input$covariables] %>% unique)
     treatments_n <- length(treatments)
     if(as.numeric(input$defCol) == 1 ) {
@@ -636,7 +744,16 @@ server <- function(input, output,session) {
         input[[paste("col", i, sep="_")]]
       })
     }
-    return( data.frame(treatments, colors=colorins, stringsAsFactors = FALSE) )
+    
+    treats_names <- sapply(treatments,function(treatment){
+      if(is.null(input[[paste0('treat_name_', treatment)]])){
+        treatment
+      }else{
+        input[[paste0('treat_name_', treatment)]]
+      }
+    })
+    
+    return( data.frame(treatments, colors=colorins, treatment_names=treats_names, stringsAsFactors = FALSE) )
   })
   
   assign_class_colors <- function(x, sel_colors, column_name){
@@ -651,6 +768,10 @@ server <- function(input, output,session) {
   output$treatSelector <- renderUI({treat()})
   
   prepare_line <- eventReactive(input$Start,{
+    sel_treatment <- input$treatcat
+    if(is.null(sel_treatment)){
+      sel_treatment <- get_treatment_values()[1]
+    }
     if(provador==FALSE) validate(need(input$file1,"Insert File!"))
     validate(need(input$factors,"Select factors of dataset"))
     validate(need(input$covariables,"Select covariable of dataset"))
@@ -685,7 +806,7 @@ server <- function(input, output,session) {
       funcions<- functions[unlist(functions[,1]) %in% colnames(nw),]
       noms <- paste0(funcions$Funcions,"_",funcions$Gens)
       mitjanes<- cbind(noms,mitjanes)
-      mitjanes <- mitjanes[order(mitjanes[,input$treatcat],decreasing = T),]
+      mitjanes <- mitjanes[order(mitjanes[,sel_treatment],decreasing = T),]
       nomsfinals <- mitjanes[,"noms"]
       mitjanes <- mitjanes[,-1]
       
@@ -712,7 +833,7 @@ server <- function(input, output,session) {
       funcions<- functions[unlist(functions[,1]) %in% colnames(nw),]
       noms <- paste0(funcions$Funcions,"_",funcions$Gens)
       mitjanes<- cbind(noms,funcions,mitjanes)
-      mitjanes<-mitjanes[order(mitjanes[,"Funcions"],-mitjanes[,paste0(input$treatcat)]),]
+      mitjanes<-mitjanes[order(mitjanes[,"Funcions"],-mitjanes[,paste0(sel_treatment)]),]
       nomsfinals <- mitjanes[,1]
       mitjanes <- mitjanes[,-c(1:3)]
     }
@@ -728,13 +849,15 @@ server <- function(input, output,session) {
       jpeg(file)
       data_line <- prepare_line()
       
-      colorins <- get_treatment_colors()$colors
+      colors_table <- get_treatment_colors()
       
       par(mar=c(14, 3, 1, 1))
       for(i in 1:get_treatments_number()){
         if(i == 1){
+          sel_treat <- colnames(data_line$mitjanes)[i]
+          sel_color <- colors_table[colors_table$treatments==sel_treat, 'colors']
           plot(data_line$mitjanes[,i],
-               col=colorins[i],
+               col=sel_color,
                ylim=c(min(as.numeric(na.omit(unlist(data_line$minim))))-0.1,
                       max(as.numeric(na.omit(unlist(data_line$maxim))))+0.1),
                type="o",
@@ -744,7 +867,9 @@ server <- function(input, output,session) {
                ylab=NA)
           axis(1, at=1:(ncol(data_line$nw)-1), labels=data_line$nomsfinals,las=2, cex.axis=0.8)
         }else{
-          lines(data_line$mitjanes[,i],col=colorins[i],type="o",pch=19)
+          sel_treat <- colnames(data_line$mitjanes)[i]
+          sel_color <- colors_table[colors_table$treatments==sel_treat, 'colors']
+          lines(data_line$mitjanes[,i],col=sel_color,type="o",pch=19)
         }
       }
       
@@ -761,7 +886,7 @@ server <- function(input, output,session) {
       if( length(ind_sign)>0 ){
         abline(v=ind_sign,col="black",lty="dotted")
       }
-      legend("topright",paste0("T",1:length(levels(as.factor(data_line$newDat[,input$covariables])))), cex=0.8, col=data_line$colorins,lty=1, title=input$covariables)
+      # legend("topright",paste0("T",1:length(levels(as.factor(data_line$newDat[,input$covariables])))), cex=0.8, col=data_line$colorins,lty=1, title=input$covariables)
       
       dev.off()
     }
@@ -769,12 +894,14 @@ server <- function(input, output,session) {
   
   output$lineplot <- renderPlot({
     data_line <- prepare_line()
-    colorins <- get_treatment_colors()$colors
+    colors_table <- get_treatment_colors()
     par(mar=c(14, 3, 1, 1))
     for(i in 1:get_treatments_number()){
+      sel_treat <- colnames(data_line$mitjanes)[i]
+      sel_color <- colors_table[colors_table$treatments==sel_treat, 'colors']
       if(i == 1){
         plot(data_line$mitjanes[,i],
-             col=colorins[i],
+             col=sel_color,
              ylim=c(min(as.numeric(na.omit(unlist(data_line$minim))))-0.1,
                     max(as.numeric(na.omit(unlist(data_line$maxim))))+0.1),
              type="o",
@@ -784,7 +911,7 @@ server <- function(input, output,session) {
              ylab=NA)
         axis(1, at=1:(ncol(data_line$nw)-1), labels=data_line$nomsfinals,las=2, cex.axis=0.8)
       }else{
-        lines(data_line$mitjanes[,i],col=colorins[i],type="o",pch=19)
+        lines(data_line$mitjanes[,i],col=sel_color,type="o",pch=19)
       }
     }
     
@@ -802,12 +929,12 @@ server <- function(input, output,session) {
       abline(v=ind_sign,col="black",lty="dotted")
     }
     
-    data_line$newDat[,input$covariables] %>% 
-      unique %>% 
-      as.character ->
-      treatments
-    colorize_treatments <- assign_class_colors(treatments, get_treatment_colors(), 'treatments')
-    legend("topright", treatments, cex=0.8, col=colorize_treatments,lty=1, title=input$covariables)
+    # data_line$newDat[,input$covariables] %>% 
+    #   unique %>% 
+    #   as.character ->
+    #   treatments
+    # colorize_treatments <- assign_class_colors(treatments, get_treatment_colors(), 'treatments')
+    # legend("topright", treatments, cex=0.8, col=colorize_treatments,lty=1, title=input$covariables)
     
   })
   # ####
@@ -836,7 +963,7 @@ server <- function(input, output,session) {
     }
   )
   
-  prepare_heatmap <- eventReactive(input$Start,{
+  prepare_heatmap <- reactive({
     new_data <- get_new_data()
     new_data %>% 
       colnames %>% 
@@ -878,7 +1005,7 @@ server <- function(input, output,session) {
                 cluster.col=cluster.col, patientcolors=patientcolors, funcColors=funcColors))
   })
   
-  plot_heatmap <- eventReactive(input$Start,{
+  plot_heatmap <- reactive({
     
     data_heatmap <- prepare_heatmap()
     if (!input$use_logs){
@@ -921,6 +1048,7 @@ server <- function(input, output,session) {
   })
   
   output$heatmap <- renderPlot({
+    get_treatment_colors()
     plot_heatmap()
   })
   
@@ -981,9 +1109,9 @@ server <- function(input, output,session) {
     par(mfrow = c(1,2),
         oma = c(0,0,0,0) + 0.5,
         mar = c(4,4,4,4) + 0.5)
-    plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7)
-    plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
-    legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
+    plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7, axes=c(1, 2))
+    plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none", axes=c(1, 2))
+    # legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
     
     
   })
@@ -1010,7 +1138,7 @@ server <- function(input, output,session) {
       png(file=file)
       data_pca <- prepare_pca()
       plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
-      legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
+      # legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
       dev.off()
     }
   )
@@ -1044,7 +1172,7 @@ server <- function(input, output,session) {
     contentType = "image/png",
     content = function(file) {
       png(file=file)
-      eixos=c(1,2)
+      eixos=c(1, 2)
       # coltract=c("black","orange","red")
       gruix=1.7
       gris=4
@@ -1069,15 +1197,15 @@ server <- function(input, output,session) {
            cex.lab=cexlab,
            cex.axis=cexax)
       
-      legend(
-        x="topleft", 
-        legend=get_treatment_colors()[, 'treatments'], 
-        cex=cexleg, 
-        col=get_treatment_colors()[, 'colors'],
-        text.col=get_treatment_colors()[, 'colors'],
-        lty=1,
-        title=input$covariables,
-        bg="white")
+      # legend(
+      #   x="topleft", 
+      #   legend=get_treatment_colors()[, 'treatments'], 
+      #   cex=cexleg, 
+      #   col=get_treatment_colors()[, 'colors'],
+      #   text.col=get_treatment_colors()[, 'colors'],
+      #   lty=1,
+      #   title=input$covariables,
+      #   bg="white")
       
       dev.off()
     }
@@ -1088,7 +1216,7 @@ server <- function(input, output,session) {
     contentType = "image/png",
     content = function(file) {
       png(file=file)
-      eixos=c(1,2)
+      eixos=c(1, 2)
       # coltract=c("black","orange","red")
       gruix=1.7
       gris=4
@@ -1102,17 +1230,17 @@ server <- function(input, output,session) {
       data_pca2 <- prepare_pca2()
       plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
            lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
-      legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
+      # legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
       dev.off()
     }
   )
   
   
-  prepare_pca2 <- eventReactive(input$Start,{
+  prepare_pca2 <- reactive({
     # nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,
     # data=datJejunal[,-c(1:3)]
     # gsignif=tab1  
-    eixos=c(1,2)
+    eixos=c(1, 2)
     gris=4
     limcos2=0.5
     
@@ -1195,8 +1323,8 @@ server <- function(input, output,session) {
   })
   
   
-  funcpca<-eventReactive(input$Start,{
-    eixos=c(1,2)
+  funcpca<-reactive({
+    eixos=c(1, 2)
     # coltract=c("black","orange","red")
     gruix=1.7
     gris=4
@@ -1225,45 +1353,9 @@ server <- function(input, output,session) {
          cex.lab=cexlab,
          cex.axis=cexax)
     
-    legend(
-      x="topleft", 
-      legend=get_treatment_colors()[, 'treatments'], 
-      cex=cexleg, 
-      col=get_treatment_colors()[, 'colors'],
-      text.col=get_treatment_colors()[, 'colors'],
-      lty=1,
-      title=input$covariables,
-      bg="white")
-
-    # saveRDS(pcaux, 'pca.RDS')
-    # saveRDS(colors, 'colors.RDS')
-    # saveRDS(colorize_functions, 'color_funs.RDS')
-    
-    plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
+    plot(data_pca2$pcaux, axes=c(1,2), choix="var", col.var=data_pca2$colorize_functions_2,
          lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
-    legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
     
-    # gray color is the baseline color for variables, overprinted with functions colors afterwards
-    # colorbase<-gray.colors(1,0.3+gris*0.05,0.3+gris*0.1)
-    # plot(pcaux, axes=eixos, choix="var", col.var=colorbase,
-    #      lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
-
-    # same colors as in heatmap
-    # ng<-nrow(pcaux$var$coord)
-    # nomgenaux<-rownames(pcaux$var$coord)
-    # nomfuncaux<-asig.func(nomgenaux,nivellsfunc)
-    # colaux<-character()
-    # for (i in 1:ng){## i<-1
-    #   fila<-which(rownames(levels_func)==nomgenaux[i])
-    #   colaux[i]<-levels_func[fila,3]
-    # }
-    # for (i in 1:ng)
-    #   arrows(x0=0,y0=0,x1=pcaux$var$coord[i,eixos[1]],
-    #          y1=pcaux$var$coord[i,eixos[2]],col=colaux[i], angle = 14,length=.1)
-    # # legend
-    # colors<-unique(colaux)
-    # funcaux<-unique(nomfuncaux)
-    # legend("topleft",legend=funcaux, col=colors,cex=cexleg,lty=1,title="Functions")
   })
   
   
@@ -1376,6 +1468,15 @@ server <- function(input, output,session) {
       footer = NULL
     ))
   })
+  
+  observeEvent(input$show4b, {
+    showModal(modalDialog(
+      title = "Theory of PCA (Catalan version)",
+      withMathJax(includeMarkdown("shows/show4b.md")),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
   observeEvent(input$show6, {
     showModal(modalDialog(
       title = "Theory of Heatmap (Catalan version)",
@@ -1405,6 +1506,15 @@ server <- function(input, output,session) {
     showModal(modalDialog(
       title = "Interpretation Hint (catalan version)",
       withMathJax(includeMarkdown("hints/hint3.md")),
+      easyClose = TRUE,
+      footer = NULL
+    ))
+  })
+  
+  observeEvent(input$showi4b, {
+    showModal(modalDialog(
+      title = "Interpretation Hint (catalan version)",
+      withMathJax(includeMarkdown("hints/hint3b.md")),
       easyClose = TRUE,
       footer = NULL
     ))
