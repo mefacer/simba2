@@ -17,4 +17,4 @@ on $q_{\alpha,I,N-I}$ és la quantila teòrica de la distribució del rang estud
 
 L'interval de confiança per a la diferència de mitjanes és:
 $$IC(\mu_j - \mu_k)= (\bar{X}_j - \bar{X}_k) \pm HSD$$
-Una manera alternativa de decidir el test és en base a mirar si el zero està contingut o no en l'interval de confiança. Si no està en l'interval de confiança, s'accepta la hipòtesi de mitjanes significativament diferents per aquests grups. 
+Una manera alternativa de decidir el test és en base a mirar si el zero està contingut o no en l'interval de confiança. Si no està en l'interval de confiança, s'accepta la hipòtesi de mitjanes significativament diferents per aquests grups ("honestament"). 

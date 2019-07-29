@@ -369,6 +369,7 @@ server <- function(input, output,session) {
   
   output$tableMCA<- DT::renderDataTable({
     tableMCA_call()
+   
   })
   
   output$downloadMCA <- downloadHandler(
@@ -457,19 +458,33 @@ server <- function(input, output,session) {
     treats_pvalues
   })
   
+  output$tukey_min <- renderText({
+    if( get_treatments_number() < 3 ){
+      'Tukey only makes sense when 3 or more different treatments'
+    }else{
+      ''
+    }
+  })
+  
   output$tableTukey <- DT::renderDataTable({
-    treats_pvalues <- calculate_table_Tukey_corrected()
-    datatable(treats_pvalues) %>%
-      formatRound(columns=colnames(treats_pvalues), digits=4)
+    if( get_treatments_number() > 2){
+      treats_pvalues <- calculate_table_Tukey_corrected()
+      datatable(treats_pvalues) %>%
+        formatRound(columns=colnames(treats_pvalues), digits=4)
+    }else{
+      datatable(data.frame())
+    }
   })
   
   output$downloadTukey <- downloadHandler(
     filename = function() {
-      paste("table_tukey.csv", sep = "")
+      paste("table_tukey_1.csv", sep = "")
     },
     content = function(file) {
-      treats_pvalues <- calculate_table_Tukey() %>% correct_cross_treatment_names
-      write.csv(treats_pvalues, file, row.names = FALSE, quote = FALSE)
+      if( get_treatments_number() > 2){
+        treats_pvalues <- calculate_table_Tukey_corrected()
+        write.csv(treats_pvalues, file, row.names = FALSE, quote = FALSE)
+      }
     }
   )
   
@@ -536,38 +551,9 @@ server <- function(input, output,session) {
   })
   
   output$tableTreatments <- DT::renderDataTable({
-    treatment_means <- calc_treatment_means_name_corrected()
-    tukey_letters <- Tukey_letters()
-    
-    significatius() %>% 
-      select(Genes, 
-             p.value, 
-             harmonic_sample_size,
-             mse, 
-             hsd) %>% 
-      mutate(mse = round(mse, digits=4)) %>% 
-      mutate(harmonic_sample_size = round(harmonic_sample_size, digits=2)) %>% 
-      mutate(hsd = round(hsd, digits=4)) %>% 
-      mutate(p.value = round(p.value, digits=4)) ->
-      genes_sign
-    
-    format_tukey_letters(tukey_letters, treatment_means) %>% 
-      combine_genes_with_funcions %>% 
-      left_join(genes_sign) %>% 
-      datatable(escape = FALSE)
-  })
-  
-  remove_subs <- function(values){
-    values %>% 
-      gsub('<sup>', '', .) %>% 
-      gsub('</sup>', '', .) 
-  }
-  
-  output$downloadTreatments <- downloadHandler(
-    filename = function() {
-      paste("table_tukey.csv", sep = "")
-    },
-    content = function(file) {
+    if( get_treatments_number() < 3 ){
+      datatable(data.frame())
+    }else{
       treatment_means <- calc_treatment_means_name_corrected()
       tukey_letters <- Tukey_letters()
       
@@ -582,12 +568,47 @@ server <- function(input, output,session) {
         mutate(hsd = round(hsd, digits=4)) %>% 
         mutate(p.value = round(p.value, digits=4)) ->
         genes_sign
-
+      
       format_tukey_letters(tukey_letters, treatment_means) %>% 
         combine_genes_with_funcions %>% 
         left_join(genes_sign) %>% 
-        sapply(remove_subs) %>% 
-        write.csv(file, row.names = FALSE, quote = FALSE)
+        datatable(escape = FALSE)
+    }
+  })
+  
+  remove_subs <- function(values){
+    values %>% 
+      gsub('<sup>', '', .) %>% 
+      gsub('</sup>', '', .) 
+  }
+  
+  output$downloadTreatments <- downloadHandler(
+    filename = function() {
+      paste("table_tukey_2.csv", sep = "")
+    },
+    content = function(file) {
+      if( get_treatments_number() >= 3 ){
+        treatment_means <- calc_treatment_means_name_corrected()
+        tukey_letters <- Tukey_letters()
+        
+        significatius() %>% 
+          select(Genes, 
+                 p.value, 
+                 harmonic_sample_size,
+                 mse, 
+                 hsd) %>% 
+          mutate(mse = round(mse, digits=4)) %>% 
+          mutate(harmonic_sample_size = round(harmonic_sample_size, digits=2)) %>% 
+          mutate(hsd = round(hsd, digits=4)) %>% 
+          mutate(p.value = round(p.value, digits=4)) ->
+          genes_sign
+  
+        format_tukey_letters(tukey_letters, treatment_means) %>% 
+          combine_genes_with_funcions %>% 
+          left_join(genes_sign) %>% 
+          sapply(remove_subs) %>% 
+          write.csv(file, row.names = FALSE, quote = FALSE)
+      }
     }
   )
 
@@ -663,7 +684,7 @@ server <- function(input, output,session) {
   # Color picker
   #   
   ####  
-  get_treatments_number <- eventReactive(input$Start,{
+  get_treatments_number <- reactive({
     get_new_data()[, input$covariables] %>% uniqueN()
   })
   
@@ -680,6 +701,45 @@ server <- function(input, output,session) {
     })
   })
   output$treatment_names <- renderUI({set_treat_names()})
+  
+  output$download_legend_treat <- downloadHandler(
+    filename = "legend_treatment.jpeg",
+    contentType = "image/jpeg",
+    content = function(file) {
+      jpeg(file)
+      plot(NULL,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+      legend(
+        x="topleft", 
+        legend=get_treatment_colors()[, 'treatment_names'], 
+        col=get_treatment_colors()[, 'colors'],
+        text.col=get_treatment_colors()[, 'colors'],
+        title='Treatments',
+        title.col='black',
+        bg="white",
+        pch=16, pt.cex=3, cex=1.5, bty='n')
+      dev.off()
+      
+    }
+  )
+  
+  output$download_legend_functions <- downloadHandler(
+    filename = "legend_functions.jpeg",
+    contentType = "image/jpeg",
+    content = function(file) {
+      jpeg(file)
+      data_pca <- prepare_pca()
+      plot(NULL,xaxt='n',yaxt='n',bty='n',ylab='',xlab='', xlim=0:1, ylim=0:1)
+      legend(
+        "topleft",
+        title.col='black',
+        data_pca$colors$gene_functions, 
+        col=data_pca$colors$colors,
+        bg="white",
+        title='Functions',
+        pch=16, pt.cex=3, cex=1.5, bty='n')
+      dev.off()
+    }
+  )
   
   output$treatment_legend <- renderPlot({
     par(mfrow=c(1,2), mar = c(1,1,1,1))
@@ -767,7 +827,7 @@ server <- function(input, output,session) {
   
   output$treatSelector <- renderUI({treat()})
   
-  prepare_line <- eventReactive(input$Start,{
+  prepare_line <- reactive({
     sel_treatment <- input$treatcat
     if(is.null(sel_treatment)){
       sel_treatment <- get_treatment_values()[1]
@@ -1420,19 +1480,22 @@ server <- function(input, output,session) {
     llista
   })
   
-  output$ExcelButton <- downloadHandler(
-    filename = "Results.xlsx",
-    content = function(file) {
-      dat <- llistaTables()
-      # wb <- createWorkbook()
-      # for (i in 1:2) {
-      #   addWorksheet(wb,sheetName=names(dat)[i])
-      #   writeData(wb, sheet=i,dat[[i]])
-      #   saveWorkbook(wb,file,overwrite = T)
-      # }
-      write_xlsx(dat)
-    }
-  )
+  # output$ExcelButton <- downloadHandler(
+  #   filename = "Results.xlsx",
+  #   content = function(file) {
+  #     
+  #     treats_pvalues <- calculate_table_Tukey_corrected()
+  #     write.csv(treats_pvalues, file, row.names = FALSE, quote = FALSE)
+  #     dat <- llistaTables()
+  #     # wb <- createWorkbook()
+  #     # for (i in 1:2) {
+  #     #   addWorksheet(wb,sheetName=names(dat)[i])
+  #     #   writeData(wb, sheet=i,dat[[i]])
+  #     #   saveWorkbook(wb,file,overwrite = T)
+  #     # }
+  #     write_xlsx(dat)
+  #   }
+  # )
   
   #THEORY
   
