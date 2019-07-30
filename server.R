@@ -319,7 +319,7 @@ server <- function(input, output,session) {
     
     treatments_n <- uniqueN(treatment)
     sem <- sqrt(mse_error/harmonic_sample_size)
-    q_val <- qtukey(1-p.value, treatments_n, valid_samples - treatments_n)
+    q_val <- qtukey(1-input$alpha, treatments_n, valid_samples - treatments_n)
     hsd <- q_val*sem
     
     data.frame(
