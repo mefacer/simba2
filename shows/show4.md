@@ -1,6 +1,6 @@
 ## Anàlisi de components principals (ACP): gràfiques
 
-L'ACP és un mètode per analitzar l'estructura d'una matriu de covariàncies o de correlacions donada i, a partir de les correlacions existents, eliminar l'eventual redundància per reduir la dimensió del conjunt de dades. Si la reducció de dimensió a dues o tres components és eficient (és a dir, recull prou informacio), aleshores l'ACP constitueix també una potent eina de visualització per a dades multinomials. 
+L'ACP és un mètode per analitzar l'estructura d'una matriu de covariàncies o de correlacions donada i, a partir de les correlacions existents, eliminar l'eventual redundància per reduir la dimensió del conjunt de dades. Si la reducció de dimensió a dues o tres components és eficient (és a dir, recull prou informació), aleshores l'ACP constitueix també una potent eina de visualització per a dades multinomials. 
 
 **Objectiu de l'ACP**
 
@@ -15,7 +15,7 @@ d'aquestes) amb les següents condicions:
  3. El conjunt de totes les components ha d'explicar la mateixa variància total que les variables originals, i les components estaran ordenades de major a menor variància.
 
 El teorema que demostra l'existència i unicitat de les components, i
-en dóna el procediment de càlcul és el següent:
+en dona el procediment de càlcul és el següent:
 
 **Teorema**
 *Les components  venen donades per la transformació lineal

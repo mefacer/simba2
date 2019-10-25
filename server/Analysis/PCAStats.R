@@ -45,7 +45,7 @@ plot_pca_mitjanes <- function(dades){
 }
 
 
-funcpca<-function(data,eixos=c(1,2),nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,
+funcpca_<-function(data,eixos=c(1,2),nomstr=nomstracs,gsignif=tab1, nivellsfunc=levels_func,
                   coltract=c("black","orange","red"), gruix=1.7, gris=4, limcos2=0.5,
                   cextit=.7,cexleg=.6,cexlab=.6,cexax=.6,cexlletra=.7)
 { # data=datJejunal[,-c(1:3)]

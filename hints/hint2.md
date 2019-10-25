@@ -4,7 +4,7 @@ Considerem les comparacions de parelles de tractaments com a proves post-hoc, é
 
 **Tukey-Table 1**
 
-Aquest Taula conté el p-valor de Tukey-Kramer, per a cada parella de tractaments en columna i per a cadascun dels gens significatius, en fila. els gens no-significatius segons l'ANOVA no surten a la taula. 
+Aquest Taula conté el p-valor de Tukey-Kramer, per a cada parella de tractaments en columna i per a cadascun dels gens significatius, en fila. Els gens no-significatius segons l'ANOVA no surten a la taula. 
 
 *Exemple d'una comparació significativa entre una parella de tractaments:*
 
@@ -39,15 +39,11 @@ En aquesta taula, si bé coherent amb l'anterior, hi tenim informació complemen
 
 -La columna "p-value" és, com hem dit, el mateix que l'ANOVA.
 
--La columna "rep" és $r^*$: mitjana harmònica del nombre de rèpliques.  Com que es consideren les rèpliques vàlides, pot variar segons el gen.
+-La columna "harmonic_sample_size" és $r^*$: mitjana harmònica del nombre de rèpliques.  Com que es consideren les rèpliques vàlides, pot variar segons el gen.
 
--La columna "MSE" és l'estimació de la variància del model obtinguda amb l'ANOVA. 
+-La columna "mse" és l'estimació de la variància del model obtinguda amb l'ANOVA. 
 
--La columna "SEM"  (error estàndard de la diferència de mitjanes) és SEM$=\sqrt{\frac{MSE}{r^*}}$.
-
--La columna "q" mostra la quantila $q_{\alpha,I,N-I}$ de la distribució rang estudentitzat.
-
--La columna "HSD" dona el llindar per a les diferències honestament significatives (HSD=q·SEM). 
+-La columna "hsd" dona el llindar per a les diferències honestament significatives (HSD=q·SEM). 
 
 (Podeu revisar la teoria del test de Tukey al desplegable corresponent.)
 

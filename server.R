@@ -227,25 +227,25 @@ server <- function(input, output,session) {
     new_data
   })
   
-  data_expression <- reactive({
-    newDat <- get_new_data()
-    if(provador==T){newDat <- newData}
-    newDataFact <- newDat[,input$factors]
-    colnames(newDataFact) <- input$factors
-    df <- data.frame(newDataFact[,input$covariables],
-                     row.names=rownames(newDataFact))
-    colnames(df) <- as.character(input$covariables)
-    idx <- match(input$factors, names(newDat))
-    idx <- sort(c(idx-1, idx))
-    data.idx <- newDat[,-idx]
-    data.idx2 <- apply(data.idx,2,function(x) as.numeric(x))
-    nw <- data.idx2
-    rownames(nw) <- rownames(data.idx)
-    colnames(nw) <- colnames(data.idx)
-    #nw <- subset(newData, colnames(newData) %in% input$factors)
-    Expression <- ExpressionSet(as.matrix(t(nw)),phenoData = AnnotatedDataFrame(data=df))
-    Expression
-  })
+  # data_expression <- reactive({
+  #   newDat <- get_new_data()
+  #   if(provador==T){newDat <- newData}
+  #   newDataFact <- newDat[,input$factors]
+  #   colnames(newDataFact) <- input$factors
+  #   df <- data.frame(newDataFact[,input$covariables],
+  #                    row.names=rownames(newDataFact))
+  #   colnames(df) <- as.character(input$covariables)
+  #   idx <- match(input$factors, names(newDat))
+  #   idx <- sort(c(idx-1, idx))
+  #   data.idx <- newDat[,-idx]
+  #   data.idx2 <- apply(data.idx,2,function(x) as.numeric(x))
+  #   nw <- data.idx2
+  #   rownames(nw) <- rownames(data.idx)
+  #   colnames(nw) <- colnames(data.idx)
+  #   #nw <- subset(newData, colnames(newData) %in% input$factors)
+  #   Expression <- ExpressionSet(as.matrix(t(nw)),phenoData = AnnotatedDataFrame(data=df))
+  #   Expression
+  # })
   
   data_expression_new <- eventReactive(input$Start,{
     data_set <- get_new_data()
@@ -276,9 +276,9 @@ server <- function(input, output,session) {
     validate(need(input$factors,"Select all factors of dataset"))
     validate(need(input$covariables,"Select covariable"))
     if(input$checkbox==F){
-      exprs(data_expression())[1:6,1:6]
+      exprs(data_expression_new())[1:6,1:6]
     }else if(input$checkbox){
-      exprs(data_expression())
+      exprs(data_expression_new())
     }
   },rownames=T)
   
@@ -374,17 +374,20 @@ server <- function(input, output,session) {
   
   output$downloadMCA <- downloadHandler(
     filename = function() {
-      paste("table_multiple_comparisons_analysis.csv", sep = "")
+      paste("taula_anova_fdr.csv", sep = "")
     },
     content = function(file) {
-      dataMCA <- significatius() %>% select(Genes, statistic, p.value, p.BH)
-      dataMCA$p.value <- format(dataMCA$p.value,4)
-      dataMCA$p.BH <- format(dataMCA$p.BH,4)
-      colnames(dataMCA) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
+      # dataMCA <- significatius() %>% select(Genes, statistic, p.value, p.BH)
+      # dataMCA$p.value <- format(dataMCA$p.value,4)
+      # dataMCA$p.BH <- format(dataMCA$p.BH,4)
+      # colnames(dataMCA) <- c("Contrast Statistic", "P-value", "P-value(FDR)")
+      # 
+      # dataMCA$Names <- row.names(dataMCA)
+      # dataMCA <- dataMCA[, c("Names", "Contrast Statistic", "P-value", "P-value(FDR)")]
+      pvaluesTable <- significatius() %>% select(Genes, statistic, p.value, p.BH)
+      colnames(pvaluesTable) <- c("Genes", "Contrast Statistic", "P-value", "P-value(FDR)")
       
-      dataMCA$Names <- row.names(dataMCA)
-      dataMCA <- dataMCA[, c("Names", "Contrast Statistic", "P-value", "P-value(FDR)")]
-      write.csv(dataMCA, file, row.names = FALSE, quote = FALSE)
+      write.csv(pvaluesTable, file, row.names = FALSE, quote = FALSE)
     }
   )
   
@@ -469,6 +472,7 @@ server <- function(input, output,session) {
   output$tableTukey <- DT::renderDataTable({
     if( get_treatments_number() > 2){
       treats_pvalues <- calculate_table_Tukey_corrected()
+      validate(need(nrow(treats_pvalues) > 0, 'No hi ha gens significatius'))
       datatable(treats_pvalues) %>%
         formatRound(columns=colnames(treats_pvalues), digits=4)
     }else{
@@ -846,20 +850,24 @@ server <- function(input, output,session) {
     rownames(nw) <- rownames(data.idx)
     colnames(nw) <- colnames(data.idx)
     nw[[input$covariables]] <- newDat[,input$covariables]
+
     maxim <- list()
     minim <- list()
-    for(i in 1:length(levels(as.factor(nw[,input$covariables])))){
-      
-      maxim[[i]] <- as.numeric(max(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
-      minim[[i]] <- as.numeric(min(colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)))
-      
-    }
-    
     mitjanes <- list()
+    treatment_names <- unique(newDat[,input$covariables])
+    for( treatment_n in 1:length(treatment_names)){
+      treatment <- treatment_names[ treatment_n ]
+      treated_obs <- nw[[input$covariables]] == treatment
+      treated_data <- nw[treated_obs, -ncol(nw)]
+      mitjanes[[treatment_n]] <- colMeans(treated_data, na.rm=TRUE)
+      maxim[[treatment_n]] <- max(mitjanes[[treatment_n]])
+      minim[[treatment_n]] <- min(mitjanes[[treatment_n]])
+    }
+
     if(as.numeric(input$orderLine)==1){
-      for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
-        mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-      }
+      # for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
+      #   mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
+      # }
       mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
       colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
       rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
@@ -871,9 +879,6 @@ server <- function(input, output,session) {
       mitjanes <- mitjanes[,-1]
       
     }else if(as.numeric(input$orderLine)==2){
-      for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
-        mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-      }
       mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
       colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
       rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
@@ -884,9 +889,6 @@ server <- function(input, output,session) {
       nomsfinals <- mitjanes[,"noms"]
       mitjanes <- mitjanes[,-1]
     }else{
-      for(i in 1:length(levels(as.factor(newDat[,input$covariables])))){
-        mitjanes[[i]] <- colMeans(subset(nw,nw[[input$covariables]]==i)[,-ncol(nw)],na.rm = T)
-      }
       mitjanes <- as.data.frame(matrix(unlist(mitjanes),nrow=length(mitjanes[[1]]),byrow=F))
       colnames(mitjanes) <- levels(as.factor(newDat[,input$covariables]))
       rownames(mitjanes) <- colnames(nw)[-ncol(nw)]
@@ -1145,35 +1147,12 @@ server <- function(input, output,session) {
   })
   
   plot_pca <- reactive({
-    # mitjanes <- calc_treatment_means()
-    # 
-    # # saveRDS(mitjanes, 'mitjanes.RDS')
-    # # saveRDS(colors, 'colors.RDS')
-    # # saveRDS(colorize_functions, 'color_funs.RDS')
-    # # 
-    # gene_functions <- get_gene_functions()
-    # colnames(gene_functions)[1] <- 'Genes'
-    # mitjanes %>% 
-    #   select(Genes) %>% 
-    #   left_join(gene_functions) ->
-    #   mitjanes_funcions
-    # colnames(mitjanes_funcions)[2] <- 'gene_functions'
-    # 
-    # colors = get_function_colors()
-    # colorize_functions <- assign_class_colors(x = mitjanes_funcions$gene_functions, colors, 'gene_functions')
-    # 
-    # 
-    # pcajetr<-PCA(mitjanes,quali.sup=1,graph=F)
-    
     data_pca <- prepare_pca()
     par(mfrow = c(1,2),
         oma = c(0,0,0,0) + 0.5,
         mar = c(4,4,4,4) + 0.5)
     plot(data_pca$pcajetr,choix="var",col.var="blue",cex.main=0.7, axes=c(1, 2))
     plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none", axes=c(1, 2))
-    # legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
-    
-    
   })
   
   output$pca <- renderPlot({
@@ -1198,7 +1177,6 @@ server <- function(input, output,session) {
       png(file=file)
       data_pca <- prepare_pca()
       plot.PCA(data_pca$pcajetr,choix="ind",col.ind=data_pca$colorize_functions, invisible="quali",label="none")
-      # legend("topright",data_pca$colors$gene_functions, cex=0.6, col=data_pca$colors$colors,lty=1,bg="white")
       dev.off()
     }
   )
@@ -1233,7 +1211,6 @@ server <- function(input, output,session) {
     content = function(file) {
       png(file=file)
       eixos=c(1, 2)
-      # coltract=c("black","orange","red")
       gruix=1.7
       gris=4
       limcos2=0.5
@@ -1257,16 +1234,6 @@ server <- function(input, output,session) {
            cex.lab=cexlab,
            cex.axis=cexax)
       
-      # legend(
-      #   x="topleft", 
-      #   legend=get_treatment_colors()[, 'treatments'], 
-      #   cex=cexleg, 
-      #   col=get_treatment_colors()[, 'colors'],
-      #   text.col=get_treatment_colors()[, 'colors'],
-      #   lty=1,
-      #   title=input$covariables,
-      #   bg="white")
-      
       dev.off()
     }
   )
@@ -1277,7 +1244,6 @@ server <- function(input, output,session) {
     content = function(file) {
       png(file=file)
       eixos=c(1, 2)
-      # coltract=c("black","orange","red")
       gruix=1.7
       gris=4
       limcos2=0.5
@@ -1290,7 +1256,6 @@ server <- function(input, output,session) {
       data_pca2 <- prepare_pca2()
       plot(data_pca2$pcaux, axes=eixos, choix="var", col.var=data_pca2$colorize_functions_2,
            lwd=gruix, cex.main=cextit, cex=cexlletra*.8,  cex.lab=cexlab,cex.axis=cexax)
-      # legend("topleft",data_pca2$colors_2$gene_functions, cex=0.6, col=data_pca2$colors_2$colors,lty=1,bg="white")
       dev.off()
     }
   )
@@ -1360,9 +1325,12 @@ server <- function(input, output,session) {
     gene_functions <- get_gene_functions()
     colnames(gene_functions)[1] <- 'Genes'
     
-    if(length(rownames(pcaux$var$cos2))==0){
-      return()
-    }
+    validate(
+      need(
+        length(rownames(pcaux$var$cos2))>0, 
+        "PCA type II no és factible perquè no hi ha gens significatius o els que ho són no tenen bona qualitat de representació en l'espai 2D"
+      )
+    )
     
     rownames(pcaux$var$cos2) %>%
       data.frame(Genes=.) %>% 
@@ -1500,103 +1468,212 @@ server <- function(input, output,session) {
   #THEORY
   
   observeEvent(input$show1, {
-    showModal(modalDialog(
-      title = "Theory of ANOVA (Catalan version)",
-      withMathJax(includeMarkdown("shows/show1.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Teoria de l'ANOVA",
+        withMathJax(includeMarkdown("shows/show1.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))  
+    }else{
+      showModal(modalDialog(
+        title = "Theory of ANOVA",
+        withMathJax(includeMarkdown("shows/eng/show1.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
+    
   })
   observeEvent(input$show2, {
-    showModal(modalDialog(
-      title = "Theory of FDR (Catalan version)",
-      withMathJax(includeMarkdown("shows/show2.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Theory of FDR",
+        withMathJax(includeMarkdown("shows/show2.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Teoria del FDR",
+        withMathJax(includeMarkdown("shows/eng/show2.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$show3, {
-    showModal(modalDialog(
-      title = "Theory of Tukey (Catalan version)",
-      withMathJax(includeMarkdown("shows/show3.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Teoria de Tukey",
+        withMathJax(includeMarkdown("shows/show3.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Theory of Tukey",
+        withMathJax(includeMarkdown("shows/eng/show3.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$show4, {
-    showModal(modalDialog(
-      title = "Theory of PCA (Catalan version)",
-      withMathJax(includeMarkdown("shows/show4.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Teoria del PCA",
+        withMathJax(includeMarkdown("shows/show4.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Theory of PCA",
+        withMathJax(includeMarkdown("shows/eng/show4.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   
   observeEvent(input$show4b, {
-    showModal(modalDialog(
-      title = "Theory of PCA (Catalan version)",
-      withMathJax(includeMarkdown("shows/show4b.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Teoria del PCA",
+        withMathJax(includeMarkdown("shows/show4b.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Theory of PCA",
+        withMathJax(includeMarkdown("shows/eng/show4b.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$show6, {
-    showModal(modalDialog(
-      title = "Theory of Heatmap (Catalan version)",
-      withMathJax(includeMarkdown("shows/show5.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Teoria del Heatmap",
+        withMathJax(includeMarkdown("shows/show5.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Theory of Heatmap",
+        withMathJax(includeMarkdown("shows/eng/show5.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   #HINTS
   observeEvent(input$showi2, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint1.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint1.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint1.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$showi3, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint2.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint2.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint2.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$showi4, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint3.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint3.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint3.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   
   observeEvent(input$showi4b, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint3b.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint3b.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint3b.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$showi5, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint4.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint4.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint4.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   observeEvent(input$showi6, {
-    showModal(modalDialog(
-      title = "Interpretation Hint (catalan version)",
-      withMathJax(includeMarkdown("hints/hint5.md")),
-      easyClose = TRUE,
-      footer = NULL
-    ))
+    if(input$language == 'Catalan'){
+      showModal(modalDialog(
+        title = "Pista d'interpretació",
+        withMathJax(includeMarkdown("hints/hint5.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }else{
+      showModal(modalDialog(
+        title = "Interpretation Hint",
+        withMathJax(includeMarkdown("hints/eng/hint5.md")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
   })
   
   output$downloadData <- downloadHandler(

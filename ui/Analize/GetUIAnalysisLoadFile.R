@@ -20,6 +20,7 @@ GetAnalysisAnalizeSidebar <- sidebarPanel("",
           # sliderInput("noNaMin","Minimum number of valid treatments. If -1, apply formula", value=-1, min=-1, max=10, step=1),
           numericInput("noNaMin", label = "Minimum number of valid treatments. If -1, apply formula", value = -1, min=-1, step=1), 
           checkboxInput('del.badRows', 'Delete Bad Rows', value=TRUE),
+          selectInput('language', 'Language', c('Catalan', 'English'), 'Catalan'),
           actionButton("Start", "Start Analysis"),
           hr()
           # conditionalPanel("input.Start>0",downloadButton("ExcelButton","Download Tables in .xlsx"))

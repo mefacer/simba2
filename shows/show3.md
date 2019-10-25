@@ -1,4 +1,4 @@
-## Métode de Tukey (*honestly-significant-difference* HSD)
+## Mètode de Tukey (*honestly-significant-difference* HSD)
 
 Fixat un nivell de significació $\alpha$, quan el nombre de possibles comparacions és elevat podem tenir un error de tipus I més elevat que $\alpha$, com també hem vist quan parlàvem de contrasts en multiplicitat de gens.
 
