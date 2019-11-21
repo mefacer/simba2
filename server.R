@@ -165,6 +165,8 @@ server <- function(input, output,session) {
       new_data <- new_data[, -columnes_eliminar]
     }  
     
+    validate(need(ncol(new_data) > 0, 'The process of deleting columns all NAs removed all columns'))
+    
     new_data %>% 
       select(-factor_columns) ->
       new_data_no_factor 
@@ -176,12 +178,16 @@ server <- function(input, output,session) {
       new_data <- new_data[-files_eliminar, ]
     }  
     
+    validate(need(nrow(new_data) > 0, 'The process of deleting rows all NAs removed all rows'))
+    
     ## delete rows with 50% or more NA's!  (opcional: del.badRows==TRUE)
     if( del.badRows==TRUE ){ 
       condition  <- narow >= floor(0.50*ncol(new_data_no_factor))   # narrow >= numgens/2
       whichcond  <- which(condition==TRUE,useNames=TRUE)  
       if(length(whichcond)>0) new_data<-subset(new_data,condition==FALSE)   
     }
+    
+    validate(need(nrow(new_data) > 0, 'The process of deleting rows with 50% or more NAs removed all rows'))
     
     ## delete columns (gens) with a too small number of valid replicates
     ### in one or more treatments
@@ -203,6 +209,8 @@ server <- function(input, output,session) {
     if(length(eliminar) > 0){
       new_data <- new_data[-eliminar]      
     }
+    
+    validate(need(ncol(new_data) > 0, 'The process of deleting columns s.t. number of valid replicates in some treatment is < Minimum number of valid treatments removed all columns'))
     return(new_data)
   }
   
@@ -210,7 +218,9 @@ server <- function(input, output,session) {
   get_new_data <- eventReactive(input$Start,{
     new_data <- read_data() %>% as.data.frame() 
     new_data <- subset(new_data, new_data[,input$Tissue]==input$tissuecat) 
-    new_data <- gestioNA(new_data, input$covariables, input$del.badRows, input$noNaMin) 
+    new_data <- gestioNA(new_data, input$covariables, del.badRows=input$del.badRows, noNaMin=input$noNaMin) 
+    validate(need(nrow(new_data) > 0, paste('Cleaning removed all data!')))
+    validate(need(ncol(new_data) > 0, paste('Cleaning removed all data!')))
     
     colnames(new_data) %>% 
       setdiff(input$factors) %>% 
