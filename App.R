@@ -2,13 +2,14 @@
 
 # install_all_packages()
 
-source("global.R") # Script per obrir tots els paquets necesaris
+source('load_versions.R') # Script per obrir tots els paquets necesaris
 source("ui.R") # User Interface
 source("server.R") #Server
 
 options(warn=-1)
 
 shinyApp(ui = ui, server = server, options = c(launch.browser=T))
+
 
 
 

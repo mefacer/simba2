@@ -272,8 +272,14 @@ server <- function(input, output,session) {
   
  
   #Load file function server
-  output$table <-renderDataTable({read_data()})
-  output$table2 <- renderDataTable({get_gene_functions()})
+  output$table <- renderDataTable({
+    data_output <- read_data()
+    data_output
+    })
+  output$table2 <- renderDataTable({
+    data_output <- get_gene_functions()
+    data_output
+    })
   ####
   #
   # Tabla gene x samples
