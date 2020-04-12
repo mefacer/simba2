@@ -29,14 +29,25 @@ git clone https://github.com/djangosee/TFGShinyApp.git
 Más información [aquí](https://support.rstudio.com/hc/en-us/articles/200486138-Changing-R-versions-for-RStudio-desktop)
 
 
+
+
 ### Cómo abrir la aplicación con Rstudio
 
 
 1. Extraer el ".ZIP" en una carpeta local.
 2. Ejecutar el proyecto `simba2.Rproj`
-3. Ejecutar todas las lineas de código que encontramos en App.r; La aplicación se abrirá automáticamente.
 
-Si hay problema con los paquetes, se puede utilizar la funcion install_all_packages() commentada en el archivo App.R
+
+### Instalar packages
+
+Ejecutar el código en el script `install_packages.R`. Esto puede tardar bastante (entre 1h y 2h).
+
+*Nota Importante*: la función `load_versions` instala y carga los paquetes. La primera vez, puede tardar bastante rato en instalarlos todos. A la pregunta "Update all/some/none? [a/s/n]:" responder `n`. Si pregunta (posiblemente varias veces), 'Do you want to install from sources the package which needs compilation? (Yes/no/cancel)' responder `Yes`. 
+
+### Lanzar aplicación
+
+Ejecutar todas las lineas de código que encontramos en App.r. La aplicación se abrirá automáticamente.
+
 
 ## GIF **ExampleFile.xlsx**
 
