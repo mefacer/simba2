@@ -21,7 +21,7 @@ list.of.packages <- c("caTools", "hexbin", 'dplyr', "plotly","codetools","writex
                       "ggplot2","heatmaply","gplots","RCurl", "Biobase",
                       "shinythemes","DT", "readxl",
                       "shiny","shinymaterial","stringi", "data.table",
-                      "agricolae", 'magrittr', 'tidyr', 'missMDA', 
+                      "agricolae", 'magrittr', 'tidyr', 'missMDA', "colourpicker",
                       'RColorBrewer', 'glue', 'httpuv', 'markdown', 'htmltools', 'htmlwidgets')
 
 
